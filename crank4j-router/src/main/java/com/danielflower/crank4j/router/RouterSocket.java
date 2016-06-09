@@ -12,8 +12,6 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 
 public class RouterSocket implements WebSocketListener {
-    public static volatile RouterSocket instance = null;
-
     private static final Logger log = LoggerFactory.getLogger(RouterSocket.class);
 
     private Session outbound;
@@ -21,6 +19,8 @@ public class RouterSocket implements WebSocketListener {
     private AsyncContext asyncContext;
     private boolean statusReceived = false;
     private ServletOutputStream responseOutputStream;
+    private Runnable onReadyForAction;
+
 
     @Override
     public void onWebSocketClose(int statusCode, String reason) {
@@ -31,8 +31,8 @@ public class RouterSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketConnect(Session session) {
-        instance = this;
         this.outbound = session;
+        onReadyForAction.run();
     }
 
     @Override
@@ -87,5 +87,9 @@ public class RouterSocket implements WebSocketListener {
         this.response = response;
         this.asyncContext = asyncContext;
         this.responseOutputStream = response.getOutputStream();
+    }
+
+    public void setOnReadyForAction(Runnable onReadyForAction) {
+        this.onReadyForAction = onReadyForAction;
     }
 }

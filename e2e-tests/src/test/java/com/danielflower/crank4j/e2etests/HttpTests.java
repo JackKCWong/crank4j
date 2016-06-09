@@ -37,15 +37,11 @@ public class HttpTests {
     }
 
     @Test
-    public void sleep() throws InterruptedException {
-        System.out.println("Sleeping");
-        Thread.sleep(1000000000L);
-    }
-
-    @Test
     public void canMakeRequests() throws Exception {
-        assertThat(client.GET(router.uri.resolve("/hello.txt")),
-            ContentResponseMatcher.equalTo(200, equalTo("Hello there")));
+        for (int i = 0; i < 1000; i++) {
+            assertThat(client.GET(router.uri.resolve("/hello.txt")),
+                ContentResponseMatcher.equalTo(200, equalTo("Hello there")));
+        }
     }
 
 }

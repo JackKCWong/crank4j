@@ -7,6 +7,7 @@ import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.net.URI;
 
 public class ConnectorApp {
@@ -28,11 +29,25 @@ public class ConnectorApp {
 
         httpClient.start();
         webSocketClient.start();
-        ConnectorSocket socket = new ConnectorSocket(httpClient, targetURI);
         URI registerURI = routerURI.resolve("/register");
+        log.info("Connecting to " + registerURI);
+        for (int i = 0; i < 100; i++) {
+            connectToRouter(registerURI);
+        }
+    }
+
+    private void connectToRouter(URI registerURI) throws IOException {
+        ConnectorSocket socket = new ConnectorSocket(httpClient, targetURI);
+        socket.whenAcquired(() -> {
+            try {
+                log.info("Adding another socket");
+                connectToRouter(registerURI);
+            } catch (IOException e) {
+                log.error("Could not replace socket to " + registerURI);
+            }
+        });
         ClientUpgradeRequest cur = new ClientUpgradeRequest();
         webSocketClient.connect(socket, registerURI, cur);
-        log.info("Connecting to " + registerURI);
     }
 
     public void shutdown() {

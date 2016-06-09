@@ -27,9 +27,9 @@ public class ConnectorSocket {
 
     private Session session;
     private Request requestToTarget;
+    private Runnable whenAcquiredAction;
 
     public ConnectorSocket(HttpClient httpClient, URI targetURI) {
-
         this.httpClient = httpClient;
         this.targetURI = targetURI;
     }
@@ -44,20 +44,19 @@ public class ConnectorSocket {
     public void onConnect(Session session) {
         log.info("Connected on " + session);
         this.session = session;
-
     }
 
     @OnWebSocketMessage
     public void onMessage(String msg) {
         log.debug("Got message " + msg);
         if (requestToTarget == null) {
+            whenAcquiredAction.run();
             String[] bits = msg.split(" ");
-
             URI dest = targetURI.resolve(bits[1]);
             String method = bits[0];
             log.info("Going to " + method + " " + dest);
-            requestToTarget = httpClient.newRequest(dest)
-                .method(method);
+            requestToTarget = httpClient.newRequest(dest).method(method);
+
         } else {
             int pos = msg.indexOf(':');
             if (pos > 0) {
@@ -127,5 +126,9 @@ public class ConnectorSocket {
         if (frame instanceof BinaryFrame) {
             log.info("Got frame " + frame);
         }
+    }
+
+    public void whenAcquired(Runnable runnable) {
+        this.whenAcquiredAction = runnable;
     }
 }

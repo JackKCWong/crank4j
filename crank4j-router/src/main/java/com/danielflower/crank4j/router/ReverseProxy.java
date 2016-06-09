@@ -15,49 +15,26 @@ import java.util.UUID;
 class ReverseProxy extends AbstractHandler {
     private static final Logger log = LoggerFactory.getLogger(ReverseProxy.class);
 
+    private final WebSocketFarm webSocketFarm;
+
+    public ReverseProxy(WebSocketFarm webSocketFarm) {
+        this.webSocketFarm = webSocketFarm;
+    }
+
     @Override
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
-        if (target.contains("favicon")) {
+        AsyncContext asyncContext = baseRequest.startAsync(request, response);
+
+        RouterSocket crankedSocket;
+        try {
+            crankedSocket = webSocketFarm.acquireSocket(target);
+        } catch (InterruptedException e) {
+            response.sendError(503, "No crankers available");
+            baseRequest.setHandled(true);
             return;
         }
-
-        while (RouterSocket.instance == null) {
-            try {
-                Thread.sleep(500);
-                log.info("Waiting for socket");
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        RouterSocket crankedSocket = RouterSocket.instance;
-        RouterSocket.instance = null;
-        AsyncContext asyncContext = baseRequest.startAsync(request, response);
         crankedSocket.setResponse(response, asyncContext);
-
-//        if (crankedSocket != null) {
-//            new Thread(new Runnable() {
-//                @Override
-//                public void run() {
-//                    try {
-//                        log.info("Waiting...");
-//                        Thread.sleep(1000);
-//                        log.info("Responding.");
-//                        HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
-//                        response.setStatus(200);
-//                        response.getWriter().append("Yo dog").close();
-//                        asyncContext.complete();
-//                    } catch (Exception e) {
-//                        e.printStackTrace();
-//                    }
-//
-//                }
-//            }).start();
-//            baseRequest.setHandled(true);
-//
-//            return;
-//        }
-
         log.info("Proxying " + target + " with " + crankedSocket);
 
         try {
@@ -74,14 +51,13 @@ class ReverseProxy extends AbstractHandler {
             }
             crankedSocket.sendText("\r\n");
 
-//            sendInputToConnector(request, crankedSocket, asyncContext);
+            sendInputToConnector(request, crankedSocket, asyncContext);
         } catch (Exception e) {
             String id = UUID.randomUUID().toString();
             log.error("Error setting up. ErrorID=" + id, e);
             response.sendError(500, "Server ErrorID=" + id);
             asyncContext.complete();
         } finally {
-            log.info("handled=true");
             baseRequest.setHandled(true);
         }
 

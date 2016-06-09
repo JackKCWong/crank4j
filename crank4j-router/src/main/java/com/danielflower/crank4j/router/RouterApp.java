@@ -27,9 +27,10 @@ public class RouterApp {
     }
 
     public void start() throws Exception {
-        startServer(registrationServer, websocketHandler());
+        WebSocketFarm webSocketFarm = new WebSocketFarm();
+        startServer(registrationServer, websocketHandler(webSocketFarm));
         log.info("Websocket registration URL started at " + registerUri);
-        startServer(httpServer, new ReverseProxy());
+        startServer(httpServer, new ReverseProxy(webSocketFarm));
         log.info("HTTP Server started at " + uri);
 
     }
@@ -39,10 +40,10 @@ public class RouterApp {
         httpServer.start();
     }
 
-    private Handler websocketHandler() {
+    private Handler websocketHandler(WebSocketFarm webSocketFarm) {
         ServletContextHandler context = new ServletContextHandler(ServletContextHandler.SESSIONS);
         context.setContextPath("/");
-        ServletHolder holderEvents = new ServletHolder("ws-events", new WebSocketConfigurer());
+        ServletHolder holderEvents = new ServletHolder("ws-events", new WebSocketConfigurer(webSocketFarm));
         context.addServlet(holderEvents, "/register/*");
         return context;
     }
