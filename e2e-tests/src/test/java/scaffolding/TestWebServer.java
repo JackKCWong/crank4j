@@ -1,7 +1,5 @@
 package scaffolding;
 
-import com.danielflower.crank4j.sharedstuff.Crank4jException;
-import com.danielflower.crank4j.sharedstuff.Porter;
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.handler.HandlerList;
@@ -25,7 +23,7 @@ public class TestWebServer implements AutoCloseable {
         jettyServer.setStopAtShutdown(true);
     }
 
-    private void start() throws Exception {
+    public void start() throws Exception {
         HandlerList handlers = new HandlerList();
         handlers.addHandler(resourceHandler());
         jettyServer.setHandler(handlers);
@@ -37,17 +35,6 @@ public class TestWebServer implements AutoCloseable {
         ResourceHandler resourceHandler = new ResourceHandler();
         resourceHandler.setBaseResource(Resource.newClassPathResource("/web", true, false));
         return resourceHandler;
-    }
-
-    public static TestWebServer startOnRandomPort() {
-        int port = Porter.getAFreePort();
-        TestWebServer server = new TestWebServer(port);
-        try {
-            server.start();
-        } catch (Exception e) {
-            throw new Crank4jException("Error starting test web server", e);
-        }
-        return server;
     }
 
     @Override

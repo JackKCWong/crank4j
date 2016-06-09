@@ -9,20 +9,19 @@ import org.junit.Test;
 import scaffolding.ContentResponseMatcher;
 import scaffolding.TestWebServer;
 
-import java.net.URI;
-
 import static com.danielflower.crank4j.sharedstuff.Action.silently;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
 
 public class HttpTests {
     private static final HttpClient client = new HttpClient();
-    private static final TestWebServer server = TestWebServer.startOnRandomPort();
-    private static RouterApp router;
+    private static final TestWebServer server = new TestWebServer(Porter.getAFreePort());
+    private static RouterApp router = new RouterApp(Porter.getAFreePort(), server.uri);
 
     @BeforeClass
     public static void start() throws Exception {
-        router = startedRouter(server.uri);
+        router.start();
+        server.start();
         client.start();
     }
     @AfterClass
@@ -36,12 +35,6 @@ public class HttpTests {
     public void canMakeRequests() throws Exception {
         assertThat(client.GET(router.uri.resolve("/hello.txt")),
             ContentResponseMatcher.equalTo(200, equalTo("Hello there")));
-    }
-
-    private static RouterApp startedRouter(URI server) throws Exception {
-        RouterApp routerApp = new RouterApp(Porter.getAFreePort(), server);
-        routerApp.start();
-        return routerApp;
     }
 
 }
