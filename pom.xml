@@ -10,7 +10,7 @@
     <version>1.0-SNAPSHOT</version>
     <modules>
         <module>crank4j-router</module>
-        <module>crank4j-target</module>
+        <module>crank4j-connector</module>
         <module>shared-stuff</module>
         <module>e2e-tests</module>
     </modules>

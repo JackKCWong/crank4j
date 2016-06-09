@@ -57,7 +57,7 @@
         </dependency>
         <dependency>
             <groupId>com.danielflower.crank4j</groupId>
-            <artifactId>crank4j-target</artifactId>
+            <artifactId>crank4j-connector</artifactId>
             <version>1.0-SNAPSHOT</version>
             <scope>test</scope>
         </dependency>
