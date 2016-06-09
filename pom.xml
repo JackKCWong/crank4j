@@ -17,7 +17,7 @@
 
     <properties>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <jetty.version>9.3.7.v20160115</jetty.version>
+        <jetty.version>9.3.9.v20160517</jetty.version>
     </properties>
 
     <inceptionYear>2016</inceptionYear>
