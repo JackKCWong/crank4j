@@ -1,5 +1,7 @@
 package com.danielflower.crank4j.e2etests;
 
+import com.danielflower.crank4j.router.RouterApp;
+import com.danielflower.crank4j.sharedstuff.Porter;
 import org.eclipse.jetty.client.HttpClient;
 import org.junit.AfterClass;
 import org.junit.BeforeClass;
@@ -16,34 +18,30 @@ import static org.hamcrest.core.IsEqual.equalTo;
 public class HttpTests {
     private static final HttpClient client = new HttpClient();
     private static final TestWebServer server = TestWebServer.startOnRandomPort();
+    private static RouterApp router;
 
     @BeforeClass
     public static void start() throws Exception {
+        router = startedRouter(server.uri);
         client.start();
     }
     @AfterClass
     public static void stop() throws Exception {
         silently(client::stop);
         silently(server::close);
+        silently(router::shutdown);
     }
 
     @Test
     public void canMakeRequests() throws Exception {
-
-        URI router = createRouter();
-        URI target = createTarget(router, server.uri);
-        client.start();
-
-        assertThat(client.GET(server.uri.resolve("/hello.txt")),
+        assertThat(client.GET(router.uri.resolve("/hello.txt")),
             ContentResponseMatcher.equalTo(200, equalTo("Hello there")));
     }
 
-    private URI createTarget(URI router, URI server) {
-        return null;
-    }
-
-    private URI createRouter() {
-        return null;
+    private static RouterApp startedRouter(URI server) throws Exception {
+        RouterApp routerApp = new RouterApp(Porter.getAFreePort(), server);
+        routerApp.start();
+        return routerApp;
     }
 
 }
