@@ -2,7 +2,6 @@ package com.danielflower.crank4j.router;
 
 import org.eclipse.jetty.server.Handler;
 import org.eclipse.jetty.server.Server;
-import org.eclipse.jetty.server.handler.HandlerList;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
 import org.slf4j.Logger;
@@ -36,9 +35,7 @@ public class RouterApp {
     }
 
     private static void startServer(Server httpServer, Handler handler) throws Exception {
-        HandlerList handlers = new HandlerList();
-        handlers.addHandler(handler);
-        httpServer.setHandler(handlers);
+        httpServer.setHandler(handler);
         httpServer.start();
     }
 

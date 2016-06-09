@@ -5,6 +5,7 @@ import org.eclipse.jetty.websocket.api.WebSocketListener;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.servlet.AsyncContext;
 import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -17,17 +18,15 @@ public class RouterSocket implements WebSocketListener {
 
     private Session outbound;
     private HttpServletResponse response;
+    private AsyncContext asyncContext;
     private boolean statusReceived = false;
     private ServletOutputStream responseOutputStream;
 
     @Override
     public void onWebSocketClose(int statusCode, String reason) {
+        log.info("Router side socket closed - ending request");
         this.outbound = null;
-        try {
-            responseOutputStream.close();
-        } catch (IOException e) {
-            log.warn("Can't close client response");
-        }
+        asyncContext.complete();
     }
 
     @Override
@@ -43,21 +42,24 @@ public class RouterSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketText(String message) {
-        log.debug("Got message " + message);
+        log.info("Got message from connector " + message);
         if (!statusReceived) {
             statusReceived = true;
             String[] bits = message.split(" ");
             int status = Integer.parseInt(bits[1]);
-            log.info("Sending status " + status);
+            log.info("Client response status " + status);
             response.setStatus(status);
         } else {
             int pos = message.indexOf(':');
             if (pos > 0) {
                 String header = message.substring(0, pos);
-                String value = message.substring(pos + 1).trim();
-                log.info("Sending " + header + "=" + value);
-                response.addHeader(header, value);
+                if (!header.equals("Content-Length")) {
+                    String value = message.substring(pos + 1).trim();
+                    log.info("Sending Client response header " + header + "=" + value);
+                    response.addHeader(header, value);
+                }
             } else {
+                response.addHeader("X-Yo-man", "Hi");
                 log.info("All headers received");
             }
         }
@@ -65,7 +67,7 @@ public class RouterSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketBinary(byte[] payload, int offset, int len) {
-        log.info("Got binary " + offset +":" + len +": " + new String(payload));
+        log.info("Got binary " + offset + ":" + len + ": " + new String(payload, offset, len));
         try {
             responseOutputStream.write(payload, offset, len);
         } catch (IOException e) {
@@ -81,8 +83,9 @@ public class RouterSocket implements WebSocketListener {
         outbound.getRemote().sendBytes(ByteBuffer.wrap(buffer, offset, len));
     }
 
-    public void setResponse(HttpServletResponse response) throws IOException {
+    public void setResponse(HttpServletResponse response, AsyncContext asyncContext) throws IOException {
         this.response = response;
+        this.asyncContext = asyncContext;
         this.responseOutputStream = response.getOutputStream();
     }
 }

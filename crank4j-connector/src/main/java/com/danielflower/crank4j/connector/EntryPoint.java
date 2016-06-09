@@ -14,7 +14,7 @@ public class EntryPoint {
         URI routerURI = URI.create(config.get("router.uri"));
         URI targetURI = URI.create(config.get("target.uri"));
         try {
-            TargetApp app = new TargetApp(routerURI, targetURI);
+            ConnectorApp app = new ConnectorApp(routerURI, targetURI);
             app.start();
             Runtime.getRuntime().addShutdownHook(new Thread(app::shutdown));
         } catch (Throwable t) {

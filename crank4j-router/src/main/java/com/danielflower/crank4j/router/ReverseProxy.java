@@ -5,14 +5,12 @@ import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.AsyncContext;
-import javax.servlet.ReadListener;
-import javax.servlet.ServletException;
-import javax.servlet.ServletInputStream;
+import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Enumeration;
+import java.util.UUID;
 
 class ReverseProxy extends AbstractHandler {
     private static final Logger log = LoggerFactory.getLogger(ReverseProxy.class);
@@ -20,18 +18,47 @@ class ReverseProxy extends AbstractHandler {
     @Override
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
+        if (target.contains("favicon")) {
+            return;
+        }
+
         while (RouterSocket.instance == null) {
             try {
                 Thread.sleep(500);
+                log.info("Waiting for socket");
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
         }
         RouterSocket crankedSocket = RouterSocket.instance;
-        crankedSocket.setResponse(response);
+        RouterSocket.instance = null;
+        AsyncContext asyncContext = baseRequest.startAsync(request, response);
+        crankedSocket.setResponse(response, asyncContext);
+
+//        if (crankedSocket != null) {
+//            new Thread(new Runnable() {
+//                @Override
+//                public void run() {
+//                    try {
+//                        log.info("Waiting...");
+//                        Thread.sleep(1000);
+//                        log.info("Responding.");
+//                        HttpServletResponse response = (HttpServletResponse) asyncContext.getResponse();
+//                        response.setStatus(200);
+//                        response.getWriter().append("Yo dog").close();
+//                        asyncContext.complete();
+//                    } catch (Exception e) {
+//                        e.printStackTrace();
+//                    }
+//
+//                }
+//            }).start();
+//            baseRequest.setHandled(true);
+//
+//            return;
+//        }
 
         log.info("Proxying " + target + " with " + crankedSocket);
-        AsyncContext asyncContext = request.startAsync();
 
         try {
 
@@ -47,31 +74,39 @@ class ReverseProxy extends AbstractHandler {
             }
             crankedSocket.sendText("\r\n");
 
-            ServletInputStream requestInputStream = request.getInputStream();
-            requestInputStream.setReadListener(new ReadListener() {
-                @Override
-                public void onDataAvailable() throws IOException {
-                    byte[] buffer = new byte[requestInputStream.available()];
-                    int read = requestInputStream.read(buffer);
-                    crankedSocket.sendData(buffer, 0, read);
-
-                }
-
-                @Override
-                public void onAllDataRead() throws IOException {
-                    asyncContext.complete();
-                }
-
-                @Override
-                public void onError(Throwable t) {
-                    log.info("Error reading request", t);
-                    asyncContext.complete();
-                }
-            });
+//            sendInputToConnector(request, crankedSocket, asyncContext);
         } catch (Exception e) {
-            response.sendError(500, e.getMessage());
+            String id = UUID.randomUUID().toString();
+            log.error("Error setting up. ErrorID=" + id, e);
+            response.sendError(500, "Server ErrorID=" + id);
             asyncContext.complete();
+        } finally {
+            log.info("handled=true");
+            baseRequest.setHandled(true);
         }
 
+    }
+
+    private static void sendInputToConnector(HttpServletRequest request, final RouterSocket crankedSocket, final AsyncContext asyncContext) throws IOException {
+        ServletInputStream requestInputStream = request.getInputStream();
+        requestInputStream.setReadListener(new ReadListener() {
+            @Override
+            public void onDataAvailable() throws IOException {
+                byte[] buffer = new byte[requestInputStream.available()];
+                int read = requestInputStream.read(buffer);
+                crankedSocket.sendData(buffer, 0, read);
+            }
+
+            @Override
+            public void onAllDataRead() throws IOException {
+                log.info("All request data read");
+            }
+
+            @Override
+            public void onError(Throwable t) {
+                log.info("Error reading request", t);
+                asyncContext.complete();
+            }
+        });
     }
 }
