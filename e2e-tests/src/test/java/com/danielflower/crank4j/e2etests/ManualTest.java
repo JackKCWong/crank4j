@@ -2,13 +2,15 @@ package com.danielflower.crank4j.e2etests;
 
 import com.danielflower.crank4j.connector.ConnectorEntryPoint;
 import com.danielflower.crank4j.router.RouterEntryPoint;
-import com.danielflower.crank4j.sharedstuff.Dirs;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import scaffolding.FileFinder;
 
 import java.io.File;
 import java.io.IOException;
+
+import static com.danielflower.crank4j.sharedstuff.Dirs.dirPath;
 
 public class ManualTest {
     private static final Logger log = LoggerFactory.getLogger(ManualTest.class);
@@ -22,8 +24,15 @@ public class ManualTest {
     }
 
     private static String[] config(String filename) {
-        return new String[] {Dirs.dirPath(new File(FileFinder.e2eTestResourcesDir(), filename))};
+        return new String[] {dirPath(new File(FileFinder.e2eTestResourcesDir(), filename))};
     }
 
+    public static SslContextFactory testSslContextFactory() {
+        SslContextFactory ssl = new SslContextFactory();
+        ssl.setKeyStorePath(dirPath(FileFinder.testFile("keystore.jks")));
+        ssl.setKeyStorePassword("password");
+        ssl.setKeyManagerPassword("password");
+        return ssl;
+    }
 
 }

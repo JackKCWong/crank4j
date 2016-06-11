@@ -26,6 +26,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.util.Optional;
 import java.util.zip.GZIPInputStream;
 
 import static com.danielflower.crank4j.sharedstuff.Action.silently;
@@ -36,7 +37,7 @@ import static org.hamcrest.core.IsEqual.equalTo;
 public class HttpTests {
     private static final HttpClient client = ClientFactory.startedHttpClient();
     private static final TestWebServer server = new TestWebServer(Porter.getAFreePort());
-    private static RouterApp router = new RouterApp(Porter.getAFreePort(), Porter.getAFreePort());
+    private static RouterApp router = new RouterApp(Porter.getAFreePort(), Porter.getAFreePort(), Optional.of(ManualTest.testSslContextFactory()));
     private static ConnectorApp target = new ConnectorApp(router.registerUri, server.uri);
 
     @BeforeClass

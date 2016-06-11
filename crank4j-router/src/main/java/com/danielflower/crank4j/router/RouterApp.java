@@ -3,12 +3,13 @@ package com.danielflower.crank4j.router;
 import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.servlet.ServletContextHandler;
 import org.eclipse.jetty.servlet.ServletHolder;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.net.InetSocketAddress;
 import java.net.URI;
-import java.util.Collections;
+import java.util.Optional;
 
 import static com.danielflower.crank4j.sharedstuff.Constants.MAX_REQUEST_HEADERS_SIZE;
 import static com.danielflower.crank4j.sharedstuff.Constants.MAX_RESPONSE_HEADERS_SIZE;
@@ -17,11 +18,14 @@ public class RouterApp {
     private static final Logger log = LoggerFactory.getLogger(RouterApp.class);
     public final URI uri;
     private final Server httpServer;
+    private final Optional<SslContextFactory> sslContextFactory;
     private Server registrationServer;
     public final URI registerUri;
 
-    public RouterApp(int httpPort, int registrationWebSocketPort) {
-        this.uri = URI.create("http://localhost:" + httpPort);
+    public RouterApp(int httpPort, int registrationWebSocketPort, Optional<SslContextFactory> sslContextFactory) {
+        this.sslContextFactory = sslContextFactory;
+        String scheme = sslContextFactory.isPresent() ? "https" : "http";
+        this.uri = URI.create(scheme + "://localhost:" + httpPort);
         this.registerUri = URI.create("ws://localhost:" + registrationWebSocketPort);
         httpServer = new Server();
         registrationServer = new Server(new InetSocketAddress(registerUri.getHost(), registerUri.getPort()));
@@ -47,8 +51,7 @@ public class RouterApp {
         config.setResponseHeaderSize(MAX_RESPONSE_HEADERS_SIZE);
         config.setSendServerVersion(false);
 
-        ServerConnector connector = new ServerConnector(httpServer);
-        connector.setConnectionFactories(Collections.singletonList(new HttpConnectionFactory(config)));
+        ServerConnector connector = new ServerConnector(httpServer, sslContextFactory.orElse(null), new HttpConnectionFactory(config));
         connector.setPort(uri.getPort());
         connector.setHost(uri.getHost());
 

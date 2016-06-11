@@ -16,7 +16,7 @@ public class Config {
         Map<String, String> env = new HashMap<>(System.getenv());
         for (String key : System.getProperties().stringPropertyNames()) {
             String value = System.getProperty(key);
-            env.put(key, value);
+            env.put(key.replace("_", ".").toLowerCase(), value);
         }
         for (String commandLineArg : commandLineArgs) {
             File file = new File(commandLineArg);
@@ -61,10 +61,14 @@ public class Config {
         }
     }
 
-    public File getDir(String name) {
+    public boolean hasItem(String name) {
+        return raw.containsKey(name);
+    }
+
+    public File getFile(String name) {
         File f = new File(get(name));
-        if (!f.isDirectory()) {
-            throw new Crank4jException("Could not find " + name + " directory: " + dirPath(f));
+        if (!f.isFile()) {
+            throw new Crank4jException("Could not find " + name + " file: " + dirPath(f));
         }
         return f;
     }
