@@ -21,11 +21,11 @@ public class RouterApp {
     private Server registrationServer;
     public final URI registerUri;
 
-    public RouterApp(int httpPort, int registrationWebSocketPort, SslContextFactory sslContextFactory) {
+    public RouterApp(int httpPort, int registrationWebSocketPort, SslContextFactory sslContextFactory, String webServerInterface, String webSocketInterface) {
         this.sslContextFactory = sslContextFactory;
         String theSecureS = sslContextFactory != null ? "s" : "";
-        this.uri = URI.create("http" + theSecureS + "://localhost:" + httpPort);
-        this.registerUri = URI.create("ws" + theSecureS + "://localhost:" + registrationWebSocketPort);
+        this.uri = URI.create("http" + theSecureS + "://" + webServerInterface + ":" + httpPort);
+        this.registerUri = URI.create("ws" + theSecureS + "://" + webSocketInterface + ":" + registrationWebSocketPort);
     }
 
     public void start() throws Exception {

@@ -32,6 +32,9 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Enumeration;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
@@ -45,7 +48,7 @@ public class HttpTests {
     private static final HttpClient client = ClientFactory.startedHttpClient();
     private static final TestWebServer server = new TestWebServer(Porter.getAFreePort());
     private static final SslContextFactory sslContextFactory = ManualTest.testSslContextFactory();
-    private static RouterApp router = new RouterApp(Porter.getAFreePort(), Porter.getAFreePort(), sslContextFactory);
+    private static RouterApp router = new RouterApp(Porter.getAFreePort(), Porter.getAFreePort(), sslContextFactory, "localhost", "localhost");
     private static ConnectorApp target = new ConnectorApp(router.registerUri, server.uri);
 
     @BeforeClass
@@ -84,6 +87,37 @@ public class HttpTests {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         IOUtils.copy(new GZIPInputStream(new ByteArrayInputStream(compressedContent)), out);
         return out.toByteArray();
+    }
+
+    @Test
+    public void headersAreCorrect() throws Exception {
+        // based on stuff in https://www.mnot.net/blog/2011/07/11/what_proxies_must_do
+        Map<String,String> requestHeaders = new HashMap<>();
+        server.registerHandler(new AbstractHandler() {
+            @Override
+            public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+                if (target.equals("/headers-test")) {
+                    response.getWriter().append("Hi").close();
+                    Enumeration<String> headerNames = request.getHeaderNames();
+                    while (headerNames.hasMoreElements()) {
+                        String name = headerNames.nextElement();
+                        requestHeaders.put(name, request.getHeader(name));
+                    }
+                    baseRequest.setHandled(true);
+                }
+            }
+        });
+
+        ContentResponse resp = client.newRequest(router.uri.resolve("/headers-test"))
+            .header("Proxy-Authorization", "Blah")
+            .header("Proxy-Authenticate", "Yeah")
+            .header("Foo", "Yo man")
+            .header("Connection", "Foo")
+            .send();
+        assertThat(requestHeaders.get("Host"), equalTo(router.uri.getAuthority()));
+        assertThat(requestHeaders.containsKey("Proxy-Authorization"), is(false));
+        assertThat(requestHeaders.containsKey("Proxy-Authenticate"), is(false));
+        assertThat(requestHeaders.containsKey("Foo"), is(false));
     }
 
     @Test

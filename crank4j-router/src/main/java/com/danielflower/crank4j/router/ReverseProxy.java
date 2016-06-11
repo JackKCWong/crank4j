@@ -5,15 +5,23 @@ import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.servlet.*;
+import javax.servlet.AsyncContext;
+import javax.servlet.ServletException;
+import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Collections;
 import java.util.Enumeration;
+import java.util.List;
 import java.util.UUID;
+
+import static java.util.Arrays.asList;
 
 class ReverseProxy extends AbstractHandler {
     private static final Logger log = LoggerFactory.getLogger(ReverseProxy.class);
+    private static final List<String> HOP_BY_HOP_HEADER_FIELDS = /* see https://tools.ietf.org/html/draft-ietf-httpbis-p1-messaging-14#section-7.1.3 */
+        asList("Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization", "TE", "Trailer", "Transfer-Encoding", "Upgrade");
 
     private final WebSocketFarm webSocketFarm;
 
@@ -42,12 +50,15 @@ class ReverseProxy extends AbstractHandler {
 
             crankedSocket.sendText(createRequestLine(request));
             Enumeration<String> headerNames = request.getHeaderNames();
+            List<String> connectionHeaders = getConnectionHeaders(request);
             while (headerNames.hasMoreElements()) {
                 String header = headerNames.nextElement();
-                Enumeration<String> values = request.getHeaders(header);
-                while (values.hasMoreElements()) {
-                    String value = values.nextElement();
-                    crankedSocket.sendText(header + ": " + value + "\r\n");
+                if (!HOP_BY_HOP_HEADER_FIELDS.contains(header) && !connectionHeaders.contains(header)) {
+                    Enumeration<String> values = request.getHeaders(header);
+                    while (values.hasMoreElements()) {
+                        String value = values.nextElement();
+                        crankedSocket.sendText(header + ": " + value + "\r\n");
+                    }
                 }
             }
             crankedSocket.sendText("\r\n");
@@ -62,6 +73,14 @@ class ReverseProxy extends AbstractHandler {
             asyncContext.complete();
         }
 
+    }
+
+    private static List<String> getConnectionHeaders(HttpServletRequest request) {
+        String connection = request.getHeader("Connection");
+        if (connection == null || connection.length() == 0) {
+            return Collections.emptyList();
+        }
+        return asList(connection.split("\\s*,\\s*"));
     }
 
     private static String createRequestLine(HttpServletRequest request) {

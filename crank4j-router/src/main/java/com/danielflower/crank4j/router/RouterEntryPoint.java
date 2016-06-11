@@ -14,7 +14,9 @@ public class RouterEntryPoint {
     public static void main(String[] args) throws IOException {
         Config config = Config.load(args);
         int port = config.getInt("router.port");
+        String webServerInterface = config.get("router.interface", "0.0.0.0");
         int registrationPort = config.getInt("router.registration.port");
+        String webSocketInterface = config.get("router.registration.interface", "0.0.0.0");
         SslContextFactory sslContextFactory;
         if (config.hasItem("router.keystore.path")) {
             sslContextFactory = new SslContextFactory();
@@ -25,7 +27,7 @@ public class RouterEntryPoint {
             sslContextFactory = null;
         }
         try {
-            RouterApp app = new RouterApp(port, registrationPort, sslContextFactory);
+            RouterApp app = new RouterApp(port, registrationPort, sslContextFactory, webServerInterface, webSocketInterface);
             app.start();
             Runtime.getRuntime().addShutdownHook(new Thread(app::shutdown));
         } catch (Throwable t) {
