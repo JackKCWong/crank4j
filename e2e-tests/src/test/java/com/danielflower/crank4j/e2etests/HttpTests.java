@@ -123,4 +123,21 @@ public class HttpTests {
         assertThat(response.getHeaders().get("X-Big-Response"), equalTo(expectedResponseHeader));
     }
 
+    @Test
+    public void queryStringsAreProxied() throws Exception {
+        server.registerHandler(new AbstractHandler() {
+            @Override
+            public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+                if (target.equals("/query-string-test")) {
+                    String val = "greeting is " + request.getParameter("greeting");
+                    response.getWriter().append(val).close();
+                    baseRequest.setHandled(true);
+                }
+            }
+        });
+
+        ContentResponse resp = client.GET(router.uri.resolve("/query-string-test?greeting=hello%20world"));
+        assertThat(resp, ContentResponseMatcher.equalTo(200, equalTo("greeting is hello world")));
+    }
+
 }

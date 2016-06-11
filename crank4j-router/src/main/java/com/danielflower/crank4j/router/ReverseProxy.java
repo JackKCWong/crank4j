@@ -1,6 +1,5 @@
 package com.danielflower.crank4j.router;
 
-import com.danielflower.crank4j.sharedstuff.Constants;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.slf4j.Logger;
@@ -40,7 +39,7 @@ class ReverseProxy extends AbstractHandler {
 
         try {
 
-            crankedSocket.sendText(request.getMethod() + " " + request.getRequestURI() + " HTTP/1.1\r\n");
+            crankedSocket.sendText(createRequestLine(request));
             Enumeration<String> headerNames = request.getHeaderNames();
             while (headerNames.hasMoreElements()) {
                 String header = headerNames.nextElement();
@@ -52,7 +51,8 @@ class ReverseProxy extends AbstractHandler {
             }
             crankedSocket.sendText("\r\n");
 
-            sendInputToConnector(request, crankedSocket, asyncContext);
+            ServletInputStream requestInputStream = request.getInputStream();
+            requestInputStream.setReadListener(new RequestBodyPumper(requestInputStream, crankedSocket, asyncContext));
         } catch (Exception e) {
             String id = UUID.randomUUID().toString();
             log.error("Error setting up. ErrorID=" + id, e);
@@ -64,35 +64,12 @@ class ReverseProxy extends AbstractHandler {
 
     }
 
-    private static void sendInputToConnector(HttpServletRequest request, final RouterSocket crankedSocket, final AsyncContext asyncContext) throws IOException {
-        ServletInputStream requestInputStream = request.getInputStream();
-        requestInputStream.setReadListener(new ReadListener() {
-            private final byte[] buffer = new byte[2048];
-            @Override
-            public void onDataAvailable() throws IOException {
-                // I wrote this based on discussions at https://github.com/eclipse/jetty.project/issues/489
-                while (requestInputStream.isReady()) {
-                    int read = requestInputStream.read(buffer);
-                    if (read == -1) {
-                        return;
-                    } else {
-                        log.info("Request data is available to send to the connector: " + read);
-                        crankedSocket.sendData(buffer, 0, read);
-                    }
-                }
-            }
-
-            @Override
-            public void onAllDataRead() throws IOException {
-                log.info("All request data read");
-                crankedSocket.sendText(Constants.REQUEST_ENDED_MARKER);
-            }
-
-            @Override
-            public void onError(Throwable t) {
-                log.info("Error reading request", t);
-                asyncContext.complete();
-            }
-        });
+    private static String createRequestLine(HttpServletRequest request) {
+        // Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
+        String path = request.getRequestURI();
+        String qs = request.getQueryString();
+        qs = (qs == null) ? "" : "?" + qs;
+        return request.getMethod() + " " + path + qs + " HTTP/1.1\r\n";
     }
+
 }

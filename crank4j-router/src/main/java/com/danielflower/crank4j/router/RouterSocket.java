@@ -26,7 +26,11 @@ public class RouterSocket implements WebSocketListener {
     public void onWebSocketClose(int statusCode, String reason) {
         log.info("Router side socket closed - ending request");
         this.outbound = null;
-        asyncContext.complete();
+        try {
+            asyncContext.complete();
+        } catch (IllegalStateException e) {
+            log.info("Tried to complete a request, but it is probably already closed.", e);
+        }
     }
 
     @Override
