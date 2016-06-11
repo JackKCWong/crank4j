@@ -33,6 +33,11 @@ class ReverseProxy extends AbstractHandler {
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
         baseRequest.setHandled(true);
+        if ("chunked".equalsIgnoreCase(request.getHeader("Transfer-Encoding")) && request.getIntHeader("Content-Length") > 0) {
+            response.sendError(400, "Invalid request: chunked request with Content-Length");
+            return;
+        }
+
         AsyncContext asyncContext = baseRequest.startAsync(request, response);
 
         RouterSocket crankedSocket;
@@ -49,18 +54,19 @@ class ReverseProxy extends AbstractHandler {
         try {
 
             crankedSocket.sendText(createRequestLine(request));
-            Enumeration<String> headerNames = request.getHeaderNames();
             List<String> connectionHeaders = getConnectionHeaders(request);
+            Enumeration<String> headerNames = request.getHeaderNames();
             while (headerNames.hasMoreElements()) {
                 String header = headerNames.nextElement();
-                if (!HOP_BY_HOP_HEADER_FIELDS.contains(header) && !connectionHeaders.contains(header)) {
+                if (shouldSendHeader(header, connectionHeaders)) {
                     Enumeration<String> values = request.getHeaders(header);
                     while (values.hasMoreElements()) {
                         String value = values.nextElement();
-                        crankedSocket.sendText(header + ": " + value + "\r\n");
+                        appendHeader(crankedSocket, header, value);
                     }
                 }
             }
+
             crankedSocket.sendText("\r\n");
 
             ServletInputStream requestInputStream = request.getInputStream();
@@ -73,6 +79,19 @@ class ReverseProxy extends AbstractHandler {
             asyncContext.complete();
         }
 
+    }
+
+    private static void appendHeader(RouterSocket crankedSocket, String header, String value) throws IOException {
+        crankedSocket.sendText(header + ": " + value + "\r\n");
+    }
+
+    private static boolean shouldSendHeader(String headerName, List<String> connectionHeaders) {
+        if (HOP_BY_HOP_HEADER_FIELDS.contains(headerName))
+            return false;
+        if (connectionHeaders.contains(headerName))
+            return false;
+
+        return true;
     }
 
     private static List<String> getConnectionHeaders(HttpServletRequest request) {

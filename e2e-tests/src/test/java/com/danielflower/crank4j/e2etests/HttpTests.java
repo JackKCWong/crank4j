@@ -40,6 +40,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
 import static com.danielflower.crank4j.sharedstuff.Action.silently;
+import static java.util.Arrays.asList;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.core.IsEqual.equalTo;
@@ -118,6 +119,8 @@ public class HttpTests {
         assertThat(requestHeaders.containsKey("Proxy-Authorization"), is(false));
         assertThat(requestHeaders.containsKey("Proxy-Authenticate"), is(false));
         assertThat(requestHeaders.containsKey("Foo"), is(false));
+        assertThat(resp.getHeaders().getValuesList("Via"), equalTo(asList("1.1 crnk")));
+
     }
 
     @Test
@@ -169,6 +172,7 @@ public class HttpTests {
 
     @Test
     public void queryStringsAreProxied() throws Exception {
+        String greeting = RandomStringUtils.randomAlphanumeric(8000);
         server.registerHandler(new AbstractHandler() {
             @Override
             public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
@@ -179,8 +183,8 @@ public class HttpTests {
                 }
             }
         });
-        ContentResponse resp = client.GET(router.uri.resolve("/query-string-test?greeting=hello%20world"));
-        assertThat(resp, ContentResponseMatcher.equalTo(200, equalTo("greeting is hello world")));
+        ContentResponse resp = client.GET(router.uri.resolve("/query-string-test?greeting=" + greeting));
+        assertThat(resp, ContentResponseMatcher.equalTo(200, equalTo("greeting is " + greeting)));
     }
 
     @Test

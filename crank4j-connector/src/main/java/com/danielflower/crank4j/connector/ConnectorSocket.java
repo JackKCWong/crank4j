@@ -4,6 +4,8 @@ import com.danielflower.crank4j.sharedstuff.Constants;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.DeferredContentProvider;
+import org.eclipse.jetty.http.HttpField;
+import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.util.Callback;
 import org.eclipse.jetty.websocket.api.CloseStatus;
 import org.eclipse.jetty.websocket.api.Session;
@@ -80,17 +82,19 @@ public class ConnectorSocket implements WebSocketListener {
                         // TODO: close stuff?
                     }
                 })
-                .onResponseHeader((response, header) -> {
+                .onResponseHeaders(response -> {
                     try {
+                        HttpFields headers = response.getHeaders();
+                        for (HttpField header : headers) {
                             String name = header.getName();
                             String value = header.getValue(); // header.getValues() breaks dates
                             log.info("Sending response header to router " + name + "=" + value);
                             session.getRemote().sendString(name + ": " + value + "\r\n");
+                        }
                         session.getRemote().sendString("\r\n");
                     } catch (IOException e) {
-                        log.warn("Oh on", e);
+                        log.warn("Error while sending header back to router", e);
                     }
-                    return true;
                 })
                 .onResponseContentAsync(new ResponseBodyPumper(session));
         } else if (msg.equals(Constants.REQUEST_ENDED_MARKER)) {
@@ -105,6 +109,7 @@ public class ConnectorSocket implements WebSocketListener {
                 requestToTarget.header(header, value);
             } else {
                 log.info("Request headers received");
+                requestToTarget.header("Via", "1.1 crnk");
                 requestToTarget.send(result -> {
                     if (result.isSucceeded()) {
                         log.info("Closing websocket because response fully processed");

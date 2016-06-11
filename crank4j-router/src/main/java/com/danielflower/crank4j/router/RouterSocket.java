@@ -63,7 +63,8 @@ public class RouterSocket implements WebSocketListener {
                     response.addHeader(header, value);
                 }
             } else {
-                response.addHeader("X-Yo-man", "Hi");
+                log.info("Got some unexpected text!! " + message);
+                response.addHeader("Via", "1.1 crnk");
                 log.info("All headers received");
             }
         }
