@@ -22,7 +22,7 @@ import java.net.URI;
 public class ConnectorSocket {
     private static final Logger log = LoggerFactory.getLogger(ConnectorSocket.class);
 
-    private final HttpClient httpClient = HttpClientFactory.startedClient();
+    private final HttpClient httpClient = ClientFactory.startedHttpClient();
     private final URI targetURI;
 
 

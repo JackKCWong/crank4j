@@ -4,11 +4,14 @@ import com.danielflower.crank4j.sharedstuff.Crank4jException;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 
-public class HttpClientFactory {
+import static com.danielflower.crank4j.sharedstuff.Constants.MAX_REQUEST_HEADERS_SIZE;
 
-    public static HttpClient startedClient() {
+public class ClientFactory {
+
+    public static HttpClient startedHttpClient() {
         HttpClient client = new HttpClient(new SslContextFactory(true));
         client.setFollowRedirects(false); // redirects should be proxied
+        client.setRequestBufferSize(MAX_REQUEST_HEADERS_SIZE);
 
         try {
             client.start();

@@ -1,8 +1,6 @@
 package scaffolding;
 
-import org.eclipse.jetty.server.Handler;
-import org.eclipse.jetty.server.Request;
-import org.eclipse.jetty.server.Server;
+import org.eclipse.jetty.server.*;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.server.handler.ContextHandler;
 import org.eclipse.jetty.server.handler.HandlerList;
@@ -16,10 +14,13 @@ import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.net.InetSocketAddress;
 import java.net.URI;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
+
+import static com.danielflower.crank4j.sharedstuff.Constants.MAX_REQUEST_HEADERS_SIZE;
+import static com.danielflower.crank4j.sharedstuff.Constants.MAX_RESPONSE_HEADERS_SIZE;
 
 public class TestWebServer implements AutoCloseable {
     private static final Logger log = LoggerFactory.getLogger(TestWebServer.class);
@@ -30,7 +31,18 @@ public class TestWebServer implements AutoCloseable {
 
     public TestWebServer(int port) {
         this.uri = URI.create("http://localhost:" + port);
-        jettyServer = new Server(new InetSocketAddress(uri.getHost(), uri.getPort()));
+        jettyServer = new Server();
+
+        HttpConfiguration config = new HttpConfiguration();
+        config.setRequestHeaderSize(MAX_REQUEST_HEADERS_SIZE);
+        config.setResponseHeaderSize(MAX_RESPONSE_HEADERS_SIZE);
+
+        ServerConnector connector = new ServerConnector(jettyServer);
+        connector.setConnectionFactories(Collections.singletonList(new HttpConnectionFactory(config)));
+        connector.setPort(uri.getPort());
+        connector.setHost(uri.getHost());
+
+        jettyServer.setConnectors(new Connector[]{connector});
         jettyServer.setStopAtShutdown(true);
     }
 
