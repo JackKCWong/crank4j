@@ -43,6 +43,7 @@ import static com.danielflower.crank4j.sharedstuff.Action.silently;
 import static java.util.Arrays.asList;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
+import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.core.IsEqual.equalTo;
 
 public class HttpTests {
@@ -120,7 +121,7 @@ public class HttpTests {
         assertThat(requestHeaders.containsKey("Proxy-Authenticate"), is(false));
         assertThat(requestHeaders.containsKey("Foo"), is(false));
         assertThat(resp.getHeaders().getValuesList("Via"), equalTo(asList("1.1 crnk")));
-
+        assertThat(resp.getHeaders().getValuesList("Date"), hasSize(1));
     }
 
     @Test

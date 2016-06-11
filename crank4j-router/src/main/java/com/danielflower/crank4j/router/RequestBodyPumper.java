@@ -33,7 +33,7 @@ class RequestBodyPumper implements ReadListener {
             if (read == -1) {
                 return;
             } else {
-                log.info("Request data is available to send to the connector: " + read);
+                log.info("About to send " + read + " bytes to connector");
                 crankedSocket.sendData(buffer, 0, read);
             }
         }

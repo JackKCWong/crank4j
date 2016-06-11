@@ -1,5 +1,6 @@
 package com.danielflower.crank4j.router;
 
+import com.danielflower.crank4j.sharedstuff.Constants;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.slf4j.Logger;
@@ -56,8 +57,11 @@ class ReverseProxy extends AbstractHandler {
             crankedSocket.sendText(createRequestLine(request));
             List<String> connectionHeaders = getConnectionHeaders(request);
             Enumeration<String> headerNames = request.getHeaderNames();
+            boolean hasContentLength = false, hasTransferEncodingHeader = false;
             while (headerNames.hasMoreElements()) {
                 String header = headerNames.nextElement();
+                hasContentLength = hasContentLength || header.equalsIgnoreCase("Content-Length");
+                hasTransferEncodingHeader = hasTransferEncodingHeader || header.equalsIgnoreCase("Transfer-Encoding");
                 if (shouldSendHeader(header, connectionHeaders)) {
                     Enumeration<String> values = request.getHeaders(header);
                     while (values.hasMoreElements()) {
@@ -69,9 +73,15 @@ class ReverseProxy extends AbstractHandler {
 
             crankedSocket.sendText("\r\n");
 
-            ServletInputStream requestInputStream = request.getInputStream();
-            int contentLength = request.getIntHeader("Content-Length");
-            requestInputStream.setReadListener(new RequestBodyPumper(requestInputStream, crankedSocket, asyncContext, contentLength));
+            if (hasContentLength || hasTransferEncodingHeader) {
+                // Stream the body
+                ServletInputStream requestInputStream = request.getInputStream();
+                int contentLength = request.getIntHeader("Content-Length");
+                requestInputStream.setReadListener(new RequestBodyPumper(requestInputStream, crankedSocket, asyncContext, contentLength));
+            } else {
+                // No request body
+                crankedSocket.sendText(Constants.REQUEST_ENDED_MARKER);
+            }
         } catch (Exception e) {
             String id = UUID.randomUUID().toString();
             log.error("Error setting up. ErrorID=" + id, e);

@@ -35,17 +35,16 @@ class ResponseBodyPumper implements Response.AsyncContentListener {
             int size = responseBytes.capacity() - position;
             responseBytes.limit(Math.min(MAX_MESSAGE_SIZE_IN_BYTES, responseBytes.capacity()));
 
-            log.info("Sending " + responseBytes.limit() + " bytes to router");
+            log.debug("Sending " + responseBytes.limit() + " bytes to router");
             session.getRemote().sendBytes(responseBytes, new WriteCallback() {
                 @Override
                 public void writeFailed(Throwable throwable) {
-                    log.info("Failed", throwable);
+                    log.info("Failed to send response data", throwable);
                     callback.failed(throwable);
                 }
 
                 @Override
                 public void writeSuccess() {
-                    log.info("Connector->target write success");
                     callback.succeeded();
                 }
             });

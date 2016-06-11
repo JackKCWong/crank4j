@@ -43,6 +43,7 @@ public class RouterApp {
         config.setRequestHeaderSize(MAX_REQUEST_HEADERS_SIZE);
         config.setResponseHeaderSize(MAX_RESPONSE_HEADERS_SIZE);
         config.setSendServerVersion(false);
+        config.setSendDateHeader(false);
         return createAndStartServer(uri, handler, config, sslContextFactory);
     }
 

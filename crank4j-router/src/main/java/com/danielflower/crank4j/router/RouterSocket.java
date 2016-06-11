@@ -59,11 +59,10 @@ public class RouterSocket implements WebSocketListener {
                 String header = message.substring(0, pos);
                 if (!header.equals("Content-Length")) {
                     String value = message.substring(pos + 1).trim();
-                    log.info("Sending Client response header " + header + "=" + value);
+                    if (log.isDebugEnabled()) log.debug("Sending Client response header " + header + "=" + value);
                     response.addHeader(header, value);
                 }
             } else {
-                log.info("Got some unexpected text!! " + message);
                 response.addHeader("Via", "1.1 crnk");
                 log.info("All headers received");
             }
@@ -72,7 +71,7 @@ public class RouterSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketBinary(byte[] payload, int offset, int len) {
-        log.info("Sending " + len + " bytes to client");
+        log.debug("Sending " + len + " bytes to client");
         try {
             responseOutputStream.write(payload, offset, len);
         } catch (IOException e) {

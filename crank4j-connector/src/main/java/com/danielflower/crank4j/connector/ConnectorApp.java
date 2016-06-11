@@ -12,7 +12,7 @@ import java.net.URI;
 
 public class ConnectorApp {
     private static final Logger log = LoggerFactory.getLogger(ConnectorApp.class);
-    public static final int WEB_SOCKET_BUFFER_SIZE = 5;
+    private static final int WEB_SOCKET_BUFFER_SIZE = 100;
 
     private final URI routerURI;
     private final URI targetURI;

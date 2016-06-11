@@ -41,7 +41,7 @@ public class ConnectorSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketBinary(byte[] payload, int offset, int len) {
-        log.info("Got binary  - " + len + " bytes");
+        log.debug("Got binary  - " + len + " bytes");
         boolean added = targetRequestContentProvider.offer(ByteBuffer.wrap(payload, offset, len), new Callback() {
             @Override
             public void succeeded() {
@@ -88,7 +88,7 @@ public class ConnectorSocket implements WebSocketListener {
                         for (HttpField header : headers) {
                             String name = header.getName();
                             String value = header.getValue(); // header.getValues() breaks dates
-                            log.info("Sending response header to router " + name + "=" + value);
+                            if (log.isDebugEnabled()) log.debug("Sending response header to router " + name + "=" + value);
                             session.getRemote().sendString(name + ": " + value + "\r\n");
                         }
                         session.getRemote().sendString("\r\n");
@@ -105,7 +105,7 @@ public class ConnectorSocket implements WebSocketListener {
             if (pos > 0) {
                 String header = msg.substring(0, pos);
                 String value = msg.substring(pos + 1).trim();
-                log.info("Target request header " + header + "=" + value);
+                if (log.isDebugEnabled()) log.debug("Target request header " + header + "=" + value);
                 requestToTarget.header(header, value);
             } else {
                 log.info("Request headers received");
@@ -126,13 +126,13 @@ public class ConnectorSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketClose(int statusCode, String reason) {
-        System.out.printf("Connection closed: %d - %s%n", statusCode, reason);
+        log.debug("Connection closed: {} - {}", statusCode, reason);
         this.session = null;
     }
 
     @Override
     public void onWebSocketConnect(Session session) {
-        log.info("Connected on " + session);
+        log.info("Connected");
         this.session = session;
     }
 
