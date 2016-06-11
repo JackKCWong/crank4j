@@ -135,9 +135,24 @@ public class HttpTests {
                 }
             }
         });
-
         ContentResponse resp = client.GET(router.uri.resolve("/query-string-test?greeting=hello%20world"));
         assertThat(resp, ContentResponseMatcher.equalTo(200, equalTo("greeting is hello world")));
+    }
+
+    @Test
+    public void pathParametersAreProxied() throws Exception {
+        server.registerHandler(new AbstractHandler() {
+            @Override
+            public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+                if (target.equals("/path-param-test/a-path-param")) {
+                    String val = "greeting is " + request.getParameter("greeting");
+                    response.getWriter().append(val).close();
+                    baseRequest.setHandled(true);
+                }
+            }
+        });
+        ContentResponse resp = client.GET(router.uri.resolve("/path-param-test;/a-path-param?greeting=hi%20there"));
+        assertThat(resp, ContentResponseMatcher.equalTo(200, equalTo("greeting is hi there")));
     }
 
 }
