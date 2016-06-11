@@ -1,9 +1,11 @@
 package scaffolding;
 
 import com.danielflower.crank4j.sharedstuff.Crank4jException;
+import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 
 import java.io.File;
+import java.io.IOException;
 
 import static com.danielflower.crank4j.sharedstuff.Dirs.dirPath;
 
@@ -29,4 +31,7 @@ public class FileFinder {
         return file;
     }
 
+    public static String helloHtmlContents() throws IOException {
+        return FileUtils.readFileToString(testFile("web/hello.html"));
+    }
 }

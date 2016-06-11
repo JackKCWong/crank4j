@@ -9,6 +9,10 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.ByteBuffer;
 
+/**
+ * This receives chunks of content from the target server and passes it onto the websocket back to the router.
+ * If the response is too large, it sends it back in chunks.
+ */
 class ResponseBodyPumper implements Response.AsyncContentListener {
     private static final int MAX_MESSAGE_SIZE_IN_BYTES = 32768;
     private static final Logger log = LoggerFactory.getLogger(ResponseBodyPumper.class);
@@ -47,6 +51,7 @@ class ResponseBodyPumper implements Response.AsyncContentListener {
             });
             position += size;
             responseBytes.position(Math.min(position, responseBytes.limit()));
+            // TODO should the next loop happen only when the callback has completed? probably...?
         }
     }
 }

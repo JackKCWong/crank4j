@@ -1,9 +1,12 @@
 package com.danielflower.crank4j.connector;
 
+import com.danielflower.crank4j.sharedstuff.Constants;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Request;
+import org.eclipse.jetty.client.util.DeferredContentProvider;
 import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
+import org.eclipse.jetty.util.Callback;
 import org.eclipse.jetty.websocket.api.CloseStatus;
 import org.eclipse.jetty.websocket.api.Session;
 import org.eclipse.jetty.websocket.api.annotations.*;
@@ -26,6 +29,7 @@ public class ConnectorSocket {
     private Session session;
     private Request requestToTarget;
     private Runnable whenAcquiredAction;
+    private DeferredContentProvider targetRequestContentProvider;
 
     public ConnectorSocket(URI targetURI) {
         this.targetURI = targetURI;
@@ -52,18 +56,11 @@ public class ConnectorSocket {
             URI dest = targetURI.resolve(bits[1]);
             String method = bits[0];
             log.info("Going to " + method + " " + dest);
-            requestToTarget = httpClient.newRequest(dest).method(method);
-
-        } else {
-            int pos = msg.indexOf(':');
-            if (pos > 0) {
-                String header = msg.substring(0, pos);
-                String value = msg.substring(pos + 1).trim();
-                log.info("Target request header " + header + "=" + value);
-                requestToTarget.header(header, value);
-            } else {
-                log.info("Request headers received");
-                requestToTarget.onResponseBegin(response -> {
+            targetRequestContentProvider = new DeferredContentProvider();
+            requestToTarget = httpClient.newRequest(dest)
+                .method(method)
+                .content(targetRequestContentProvider)
+                .onResponseBegin(response -> {
                     try {
                         log.info("Sending status to router " + response.getStatus());
                         session.getRemote().sendString("HTTP/1.1 " + response.getStatus() + " " + response.getReason() + "\r\n");
@@ -71,8 +68,8 @@ public class ConnectorSocket {
                         log.warn("Uh oh", e);
                         // TODO: close stuff?
                     }
-                });
-                requestToTarget.onResponseHeaders(response -> {
+                })
+                .onResponseHeaders(response -> {
                     try {
                         HttpFields headers = response.getHeaders();
                         for (HttpField header : headers) {
@@ -85,8 +82,20 @@ public class ConnectorSocket {
                     } catch (IOException e) {
                         log.warn("Oh on", e);
                     }
-                });
-                requestToTarget.onResponseContentAsync(new ResponseBodyPumper(session));
+                })
+                .onResponseContentAsync(new ResponseBodyPumper(session));
+        } else if (msg.equals(Constants.REQUEST_ENDED_MARKER)) {
+            log.info("Request body fully sent");
+            targetRequestContentProvider.close();
+        } else {
+            int pos = msg.indexOf(':');
+            if (pos > 0) {
+                String header = msg.substring(0, pos);
+                String value = msg.substring(pos + 1).trim();
+                log.info("Target request header " + header + "=" + value);
+                requestToTarget.header(header, value);
+            } else {
+                log.info("Request headers received");
                 requestToTarget.send(result -> {
                     if (result.isSucceeded()) {
                         log.info("Closing websocket because response fully processed");
@@ -102,9 +111,20 @@ public class ConnectorSocket {
 
     @OnWebSocketFrame
     public void onWebsocketFrame(Frame frame) {
-        log.info("Connector got frame from router: " + frame.getClass().getSimpleName());
         if (frame instanceof BinaryFrame) {
+            BinaryFrame bFrame = (BinaryFrame) frame;
             log.info("Got frame " + frame);
+            targetRequestContentProvider.offer(bFrame.getPayload(), new Callback() {
+                @Override
+                public void succeeded() {
+                    log.info("Sent request content to target");
+                }
+
+                @Override
+                public void failed(Throwable x) {
+                    log.warn("Error sending request content to target", x);
+                }
+            });
         }
     }
 

@@ -1,5 +1,6 @@
 package com.danielflower.crank4j.router;
 
+import com.danielflower.crank4j.sharedstuff.Constants;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.slf4j.Logger;
@@ -66,16 +67,25 @@ class ReverseProxy extends AbstractHandler {
     private static void sendInputToConnector(HttpServletRequest request, final RouterSocket crankedSocket, final AsyncContext asyncContext) throws IOException {
         ServletInputStream requestInputStream = request.getInputStream();
         requestInputStream.setReadListener(new ReadListener() {
+            private final byte[] buffer = new byte[2048];
             @Override
             public void onDataAvailable() throws IOException {
-                byte[] buffer = new byte[requestInputStream.available()];
-                int read = requestInputStream.read(buffer);
-                crankedSocket.sendData(buffer, 0, read);
+                // I wrote this based on discussions at https://github.com/eclipse/jetty.project/issues/489
+                while (requestInputStream.isReady()) {
+                    int read = requestInputStream.read(buffer);
+                    if (read == -1) {
+                        return;
+                    } else {
+                        log.info("Request data is available to send to the connector: " + read);
+                        crankedSocket.sendData(buffer, 0, read);
+                    }
+                }
             }
 
             @Override
             public void onAllDataRead() throws IOException {
                 log.info("All request data read");
+                crankedSocket.sendText(Constants.REQUEST_ENDED_MARKER);
             }
 
             @Override
