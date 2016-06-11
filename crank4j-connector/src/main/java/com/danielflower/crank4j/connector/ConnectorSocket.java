@@ -6,7 +6,6 @@ import org.eclipse.jetty.http.HttpField;
 import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.websocket.api.CloseStatus;
 import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.WriteCallback;
 import org.eclipse.jetty.websocket.api.annotations.*;
 import org.eclipse.jetty.websocket.api.extensions.Frame;
 import org.eclipse.jetty.websocket.common.frames.BinaryFrame;
@@ -15,13 +14,12 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
-import java.nio.ByteBuffer;
 
 @WebSocket
 public class ConnectorSocket {
     private static final Logger log = LoggerFactory.getLogger(ConnectorSocket.class);
 
-    private final HttpClient httpClient;
+    private final HttpClient httpClient = HttpClientFactory.startedClient();
     private final URI targetURI;
 
 
@@ -29,8 +27,7 @@ public class ConnectorSocket {
     private Request requestToTarget;
     private Runnable whenAcquiredAction;
 
-    public ConnectorSocket(HttpClient httpClient, URI targetURI) {
-        this.httpClient = httpClient;
+    public ConnectorSocket(URI targetURI) {
         this.targetURI = targetURI;
     }
 
@@ -89,25 +86,7 @@ public class ConnectorSocket {
                         log.warn("Oh on", e);
                     }
                 });
-                requestToTarget.onResponseContentAsync((response, byteBuffer, callback) -> {
-                    ByteBuffer responseBytes = ByteBuffer.allocate(byteBuffer.capacity());
-                    responseBytes.put(byteBuffer);
-                    responseBytes.position(0);
-                    log.info("Sending " + byteBuffer.capacity() + " bytes to router");
-                    session.getRemote().sendBytes(responseBytes, new WriteCallback() {
-                        @Override
-                        public void writeFailed(Throwable throwable) {
-                            log.info("Failed", throwable);
-                            callback.failed(throwable);
-                        }
-
-                        @Override
-                        public void writeSuccess() {
-                            log.info("Connector->target write success");
-                            callback.succeeded();
-                        }
-                    });
-                });
+                requestToTarget.onResponseContentAsync(new ResponseBodyPumper(session));
                 requestToTarget.send(result -> {
                     if (result.isSucceeded()) {
                         log.info("Closing websocket because response fully processed");
@@ -123,6 +102,7 @@ public class ConnectorSocket {
 
     @OnWebSocketFrame
     public void onWebsocketFrame(Frame frame) {
+        log.info("Connector got frame from router: " + frame.getClass().getSimpleName());
         if (frame instanceof BinaryFrame) {
             log.info("Got frame " + frame);
         }
@@ -131,4 +111,5 @@ public class ConnectorSocket {
     public void whenAcquired(Runnable runnable) {
         this.whenAcquiredAction = runnable;
     }
+
 }

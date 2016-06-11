@@ -1,0 +1,52 @@
+package com.danielflower.crank4j.connector;
+
+import org.eclipse.jetty.client.api.Response;
+import org.eclipse.jetty.util.Callback;
+import org.eclipse.jetty.websocket.api.Session;
+import org.eclipse.jetty.websocket.api.WriteCallback;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import java.nio.ByteBuffer;
+
+class ResponseBodyPumper implements Response.AsyncContentListener {
+    private static final int MAX_MESSAGE_SIZE_IN_BYTES = 32768;
+    private static final Logger log = LoggerFactory.getLogger(ResponseBodyPumper.class);
+    private final Session session;
+
+    ResponseBodyPumper(Session session) {
+        this.session = session;
+    }
+
+    @Override
+    public void onContent(Response response, ByteBuffer byteBuffer, Callback callback) {
+
+        ByteBuffer responseBytes = ByteBuffer.allocate(byteBuffer.capacity());
+        responseBytes.put(byteBuffer);
+        responseBytes.position(0);
+        int position = 0;
+
+        while (responseBytes.hasRemaining()) {
+
+            int size = responseBytes.capacity() - position;
+            responseBytes.limit(Math.min(MAX_MESSAGE_SIZE_IN_BYTES, responseBytes.capacity()));
+
+            log.info("Sending " + responseBytes.limit() + " bytes to router");
+            session.getRemote().sendBytes(responseBytes, new WriteCallback() {
+                @Override
+                public void writeFailed(Throwable throwable) {
+                    log.info("Failed", throwable);
+                    callback.failed(throwable);
+                }
+
+                @Override
+                public void writeSuccess() {
+                    log.info("Connector->target write success");
+                    callback.succeeded();
+                }
+            });
+            position += size;
+            responseBytes.position(Math.min(position, responseBytes.limit()));
+        }
+    }
+}

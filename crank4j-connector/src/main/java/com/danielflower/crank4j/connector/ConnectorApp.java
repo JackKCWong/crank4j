@@ -1,7 +1,6 @@
 package com.danielflower.crank4j.connector;
 
 import com.danielflower.crank4j.sharedstuff.Action;
-import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.slf4j.Logger;
@@ -12,11 +11,11 @@ import java.net.URI;
 
 public class ConnectorApp {
     private static final Logger log = LoggerFactory.getLogger(ConnectorApp.class);
+    public static final int WEB_SOCKET_BUFFER_SIZE = 5;
 
     private final URI routerURI;
     private final URI targetURI;
     private final WebSocketClient webSocketClient = new WebSocketClient();
-    private final HttpClient httpClient = new HttpClient();
 
     public ConnectorApp(URI routerURI, URI targetURI) {
         this.routerURI = routerURI;
@@ -24,20 +23,17 @@ public class ConnectorApp {
     }
 
     public void start() throws Exception {
-        httpClient.setFollowRedirects(false);
-        httpClient.setMaxConnectionsPerDestination(1000);
-
-        httpClient.start();
+        webSocketClient.setMaxBinaryMessageBufferSize(16384);
         webSocketClient.start();
         URI registerURI = routerURI.resolve("/register");
         log.info("Connecting to " + registerURI);
-        for (int i = 0; i < 100; i++) {
+        for (int i = 0; i < WEB_SOCKET_BUFFER_SIZE; i++) {
             connectToRouter(registerURI);
         }
     }
 
     private void connectToRouter(URI registerURI) throws IOException {
-        ConnectorSocket socket = new ConnectorSocket(httpClient, targetURI);
+        ConnectorSocket socket = new ConnectorSocket(targetURI);
         socket.whenAcquired(() -> {
             try {
                 log.info("Adding another socket");
