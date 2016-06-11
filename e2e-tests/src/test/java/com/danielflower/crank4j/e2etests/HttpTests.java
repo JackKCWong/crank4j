@@ -4,12 +4,14 @@ import com.danielflower.crank4j.connector.ConnectorApp;
 import com.danielflower.crank4j.connector.HttpClientFactory;
 import com.danielflower.crank4j.router.RouterApp;
 import com.danielflower.crank4j.sharedstuff.Porter;
+import org.apache.commons.io.FileUtils;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
 import org.junit.AfterClass;
+import org.junit.Assert;
 import org.junit.BeforeClass;
 import org.junit.Test;
-import scaffolding.ContentResponseMatcher;
+import scaffolding.FileFinder;
 import scaffolding.TestWebServer;
 
 import java.io.ByteArrayInputStream;
@@ -20,10 +22,8 @@ import java.util.concurrent.TimeoutException;
 import java.util.zip.GZIPInputStream;
 
 import static com.danielflower.crank4j.sharedstuff.Action.silently;
-import static org.hamcrest.CoreMatchers.containsString;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
-import static org.hamcrest.Matchers.allOf;
 
 public class HttpTests {
     private static final HttpClient client = HttpClientFactory.startedClient();
@@ -48,9 +48,13 @@ public class HttpTests {
 
     @Test
     public void canMakeGETRequests() throws Exception {
-        assertThat(client.GET(router.uri.resolve("/static/hello.html")),
-            ContentResponseMatcher.equalTo(200,
-                allOf(containsString("A two-piece reverse proxy for cases"), containsString("</html>"))));
+        ContentResponse resp = client.GET(router.uri.resolve("/static/hello.html"));
+        assertThat(resp.getStatus(), is(200));
+        Assert.assertEquals(helloHtmlContents(), resp.getContentAsString());
+    }
+
+    private static String helloHtmlContents() throws IOException {
+        return FileUtils.readFileToString(FileFinder.testFile("web/hello.html"));
     }
 
     @Test
@@ -74,7 +78,7 @@ public class HttpTests {
         }
         byte uncompressed[] = byteout.toByteArray();
         String respText = new String(uncompressed, "UTF-8");
-        assertThat(respText, allOf(containsString("A two-piece reverse proxy for cases"), containsString("</html>")));
+        Assert.assertEquals(helloHtmlContents(), respText);
     }
 
 }
