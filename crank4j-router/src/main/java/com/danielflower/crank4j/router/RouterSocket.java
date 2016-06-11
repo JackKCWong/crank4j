@@ -47,7 +47,6 @@ public class RouterSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketText(String message) {
-        log.info("Got message from connector " + message);
         if (!statusReceived) {
             statusReceived = true;
             String[] bits = message.split(" ");

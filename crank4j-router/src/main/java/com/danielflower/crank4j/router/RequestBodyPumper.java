@@ -11,15 +11,18 @@ import java.io.IOException;
 
 class RequestBodyPumper implements ReadListener {
     private static final Logger log = LoggerFactory.getLogger(RequestBodyPumper.class);
-    private final byte[] buffer = new byte[2048];
+    private final byte[] buffer;
     private final ServletInputStream requestInputStream;
     private final RouterSocket crankedSocket;
     private final AsyncContext asyncContext;
 
-    public RequestBodyPumper(ServletInputStream requestInputStream, RouterSocket crankedSocket, AsyncContext asyncContext) {
+    public RequestBodyPumper(ServletInputStream requestInputStream, RouterSocket crankedSocket, AsyncContext asyncContext, int contentLength) {
         this.requestInputStream = requestInputStream;
         this.crankedSocket = crankedSocket;
         this.asyncContext = asyncContext;
+
+        int bufferSize = ((contentLength < 1) || (contentLength > 2048)) ? 2048 : contentLength;
+        buffer = new byte[bufferSize];
     }
 
     @Override

@@ -4,8 +4,6 @@ import com.danielflower.crank4j.sharedstuff.Constants;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.Request;
 import org.eclipse.jetty.client.util.DeferredContentProvider;
-import org.eclipse.jetty.http.HttpField;
-import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.util.Callback;
 import org.eclipse.jetty.websocket.api.CloseStatus;
 import org.eclipse.jetty.websocket.api.Session;
@@ -17,7 +15,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
-import java.util.concurrent.atomic.AtomicInteger;
 
 @WebSocket
 public class ConnectorSocket implements WebSocketListener {
@@ -36,38 +33,22 @@ public class ConnectorSocket implements WebSocketListener {
         this.targetURI = targetURI;
     }
 
-
-
-
-    private final AtomicInteger writeCount = new AtomicInteger();
-
-
     public void whenAcquired(Runnable runnable) {
         this.whenAcquiredAction = runnable;
     }
 
     @Override
     public void onWebSocketBinary(byte[] payload, int offset, int len) {
-        log.info("Got binary  - " + new String(payload, offset, len));
-        while (writeCount.get() > 0) {
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-        }
-        writeCount.incrementAndGet();
+        log.info("Got binary  - " + len + " bytes");
         boolean added = targetRequestContentProvider.offer(ByteBuffer.wrap(payload, offset, len), new Callback() {
             @Override
             public void succeeded() {
                 log.info("Sent request content to target");
-                writeCount.decrementAndGet();
             }
 
             @Override
             public void failed(Throwable x) {
                 log.warn("Error sending request content to target", x);
-                writeCount.decrementAndGet();
             }
 
         });
@@ -99,30 +80,20 @@ public class ConnectorSocket implements WebSocketListener {
                         // TODO: close stuff?
                     }
                 })
-                .onResponseHeaders(response -> {
+                .onResponseHeader((response, header) -> {
                     try {
-                        HttpFields headers = response.getHeaders();
-                        for (HttpField header : headers) {
                             String name = header.getName();
                             String value = header.getValue(); // header.getValues() breaks dates
                             log.info("Sending response header to router " + name + "=" + value);
                             session.getRemote().sendString(name + ": " + value + "\r\n");
-                        }
                         session.getRemote().sendString("\r\n");
                     } catch (IOException e) {
                         log.warn("Oh on", e);
                     }
+                    return true;
                 })
                 .onResponseContentAsync(new ResponseBodyPumper(session));
         } else if (msg.equals(Constants.REQUEST_ENDED_MARKER)) {
-            log.info("Write count = " + writeCount.get());
-            while (writeCount.get() > 0) {
-                try {
-                    Thread.sleep(100);
-                } catch (InterruptedException e) {
-                    e.printStackTrace();
-                }
-            }
             targetRequestContentProvider.close();
             log.info("Request body fully sent");
         } else {
@@ -139,7 +110,7 @@ public class ConnectorSocket implements WebSocketListener {
                         log.info("Closing websocket because response fully processed");
                         session.close(new CloseStatus(1000, "Proxy complete"));
                     } else {
-                        log.warn("Failed for " + result.getResponse(), result.getFailure());
+                        log.warn("Failed for " + result.getResponse(), result.getFailure() + " for " + targetURI);
                         session.close(new CloseStatus(1011, result.getFailure().getMessage()));
                     }
                 });
@@ -162,6 +133,6 @@ public class ConnectorSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketError(Throwable cause) {
-
+        log.warn("Websocket error detected for " + targetURI, cause);
     }
 }

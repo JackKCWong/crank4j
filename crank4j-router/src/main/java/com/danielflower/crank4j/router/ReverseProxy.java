@@ -53,7 +53,8 @@ class ReverseProxy extends AbstractHandler {
             crankedSocket.sendText("\r\n");
 
             ServletInputStream requestInputStream = request.getInputStream();
-            requestInputStream.setReadListener(new RequestBodyPumper(requestInputStream, crankedSocket, asyncContext));
+            int contentLength = request.getIntHeader("Content-Length");
+            requestInputStream.setReadListener(new RequestBodyPumper(requestInputStream, crankedSocket, asyncContext, contentLength));
         } catch (Exception e) {
             String id = UUID.randomUUID().toString();
             log.error("Error setting up. ErrorID=" + id, e);
