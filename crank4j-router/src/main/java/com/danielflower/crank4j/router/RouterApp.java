@@ -45,6 +45,7 @@ public class RouterApp {
         HttpConfiguration config = new HttpConfiguration();
         config.setRequestHeaderSize(MAX_REQUEST_HEADERS_SIZE);
         config.setResponseHeaderSize(MAX_RESPONSE_HEADERS_SIZE);
+        config.setSendServerVersion(false);
 
         ServerConnector connector = new ServerConnector(httpServer);
         connector.setConnectionFactories(Collections.singletonList(new HttpConnectionFactory(config)));
