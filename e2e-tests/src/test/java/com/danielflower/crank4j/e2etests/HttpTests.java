@@ -8,10 +8,15 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.client.api.ContentResponse;
+import org.eclipse.jetty.client.api.Response;
+import org.eclipse.jetty.client.api.Result;
+import org.eclipse.jetty.client.util.DeferredContentProvider;
 import org.eclipse.jetty.client.util.FormContentProvider;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
+import org.eclipse.jetty.util.Callback;
 import org.eclipse.jetty.util.Fields;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.junit.AfterClass;
 import org.junit.Assert;
 import org.junit.BeforeClass;
@@ -20,13 +25,15 @@ import scaffolding.ContentResponseMatcher;
 import scaffolding.FileFinder;
 import scaffolding.TestWebServer;
 
-import javax.servlet.ServletException;
+import javax.servlet.*;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.Optional;
+import java.nio.ByteBuffer;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
 import static com.danielflower.crank4j.sharedstuff.Action.silently;
@@ -37,7 +44,8 @@ import static org.hamcrest.core.IsEqual.equalTo;
 public class HttpTests {
     private static final HttpClient client = ClientFactory.startedHttpClient();
     private static final TestWebServer server = new TestWebServer(Porter.getAFreePort());
-    private static RouterApp router = new RouterApp(Porter.getAFreePort(), Porter.getAFreePort(), Optional.of(ManualTest.testSslContextFactory()));
+    private static final SslContextFactory sslContextFactory = ManualTest.testSslContextFactory();
+    private static RouterApp router = new RouterApp(Porter.getAFreePort(), Porter.getAFreePort(), sslContextFactory);
     private static ConnectorApp target = new ConnectorApp(router.registerUri, server.uri);
 
     @BeforeClass
@@ -84,7 +92,8 @@ public class HttpTests {
             @Override
             public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
                 if (target.equals("/post-test")) {
-                    response.getWriter().append("Got value=").append(request.getParameter("value")).close();
+                    String sentValue = request.getParameter("value");
+                    response.getWriter().append("Got value=").append(sentValue).close();
                     baseRequest.setHandled(true);
                 }
             }
@@ -155,5 +164,89 @@ public class HttpTests {
         ContentResponse resp = client.GET(router.uri.resolve("/path-param-test;/a-path-param?greeting=hi%20there"));
         assertThat(resp, ContentResponseMatcher.equalTo(200, equalTo("greeting is hi there")));
     }
+
+    @Test
+    public void hundredsOfKBsOfPostDataCanBeStreamedThereAndBackAgain() throws Exception {
+        String val = RandomStringUtils.randomAlphanumeric(500000);
+        StringBuffer errors = new StringBuffer();
+        server.registerHandler(new AbstractHandler() {
+            @Override
+            public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
+                if (target.equals("/large-post")) {
+                    AsyncContext asyncContext = request.startAsync();
+                    baseRequest.setHandled(true);
+                    ServletInputStream requestInputStream = request.getInputStream();
+                    ServletOutputStream responseStream = response.getOutputStream();
+                    requestInputStream.setReadListener(new ReadListener() {
+                        byte[] buffer = new byte[8192];
+
+                        @Override
+                        public void onDataAvailable() throws IOException {
+                            while (requestInputStream.isReady()) {
+                                int read = requestInputStream.read(buffer);
+                                if (read == -1) {
+                                    return;
+                                } else {
+                                    responseStream.write(buffer, 0, read);
+                                }
+                            }
+                        }
+
+                        @Override
+                        public void onAllDataRead() throws IOException {
+                            responseStream.close();
+                            requestInputStream.close();
+                            asyncContext.complete();
+                        }
+
+                        @Override
+                        public void onError(Throwable t) {
+                            errors.append("Error on read: ").append(t);
+                        }
+                    });
+
+                }
+            }
+        });
+
+        CountDownLatch latch2 = new CountDownLatch(1);
+        StringBuffer actualBody = new StringBuffer();
+
+        DeferredContentProvider content = new DeferredContentProvider();
+        client.POST(router.uri.resolve("/large-post"))
+            .content(content)
+            .send(new Response.Listener.Adapter() {
+
+                @Override
+                public void onContent(Response response, ByteBuffer content) {
+                    ByteBuffer responseBytes = ByteBuffer.allocate(content.capacity());
+                    responseBytes.put(content);
+                    responseBytes.position(0);
+                    String s = new String(responseBytes.array());
+                    actualBody.append(s);
+                }
+
+                @Override
+                public void onComplete(Result result) {
+                    latch2.countDown();
+                }
+            });
+
+        CountDownLatch latch = new CountDownLatch(1);
+        content.offer(ByteBuffer.wrap(val.getBytes()), new Callback() {
+            @Override
+            public void succeeded() {
+                latch.countDown();
+            }
+        });
+        latch.await();
+        content.close();
+        latch2.await(1, TimeUnit.MINUTES);
+
+        Assert.assertEquals("", errors.toString());
+        Assert.assertEquals(val, actualBody.toString());
+
+    }
+
 
 }

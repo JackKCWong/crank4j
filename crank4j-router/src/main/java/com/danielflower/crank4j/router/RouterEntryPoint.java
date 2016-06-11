@@ -6,7 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
-import java.util.Optional;
 
 import static com.danielflower.crank4j.sharedstuff.Dirs.dirPath;
 
@@ -26,7 +25,7 @@ public class RouterEntryPoint {
             sslContextFactory = null;
         }
         try {
-            RouterApp app = new RouterApp(port, registrationPort, Optional.ofNullable(sslContextFactory));
+            RouterApp app = new RouterApp(port, registrationPort, sslContextFactory);
             app.start();
             Runtime.getRuntime().addShutdownHook(new Thread(app::shutdown));
         } catch (Throwable t) {

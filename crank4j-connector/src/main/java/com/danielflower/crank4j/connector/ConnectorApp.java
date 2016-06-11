@@ -1,6 +1,7 @@
 package com.danielflower.crank4j.connector;
 
 import com.danielflower.crank4j.sharedstuff.Action;
+import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
 import org.slf4j.Logger;
@@ -15,7 +16,7 @@ public class ConnectorApp {
 
     private final URI routerURI;
     private final URI targetURI;
-    private final WebSocketClient webSocketClient = new WebSocketClient();
+    private final WebSocketClient webSocketClient = new WebSocketClient(new SslContextFactory(true));
 
     public ConnectorApp(URI routerURI, URI targetURI) {
         this.routerURI = routerURI;

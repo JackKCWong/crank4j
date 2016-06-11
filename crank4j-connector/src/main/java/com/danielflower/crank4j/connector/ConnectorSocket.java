@@ -9,17 +9,18 @@ import org.eclipse.jetty.http.HttpFields;
 import org.eclipse.jetty.util.Callback;
 import org.eclipse.jetty.websocket.api.CloseStatus;
 import org.eclipse.jetty.websocket.api.Session;
-import org.eclipse.jetty.websocket.api.annotations.*;
-import org.eclipse.jetty.websocket.api.extensions.Frame;
-import org.eclipse.jetty.websocket.common.frames.BinaryFrame;
+import org.eclipse.jetty.websocket.api.WebSocketListener;
+import org.eclipse.jetty.websocket.api.annotations.WebSocket;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 import java.net.URI;
+import java.nio.ByteBuffer;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @WebSocket
-public class ConnectorSocket {
+public class ConnectorSocket implements WebSocketListener {
     private static final Logger log = LoggerFactory.getLogger(ConnectorSocket.class);
 
     private final HttpClient httpClient = ClientFactory.startedHttpClient();
@@ -35,20 +36,49 @@ public class ConnectorSocket {
         this.targetURI = targetURI;
     }
 
-    @OnWebSocketClose
-    public void onClose(int statusCode, String reason) {
-        System.out.printf("Connection closed: %d - %s%n", statusCode, reason);
-        this.session = null;
+
+
+
+    private final AtomicInteger writeCount = new AtomicInteger();
+
+
+    public void whenAcquired(Runnable runnable) {
+        this.whenAcquiredAction = runnable;
     }
 
-    @OnWebSocketConnect
-    public void onConnect(Session session) {
-        log.info("Connected on " + session);
-        this.session = session;
+    @Override
+    public void onWebSocketBinary(byte[] payload, int offset, int len) {
+        log.info("Got binary  - " + new String(payload, offset, len));
+        while (writeCount.get() > 0) {
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
+        writeCount.incrementAndGet();
+        boolean added = targetRequestContentProvider.offer(ByteBuffer.wrap(payload, offset, len), new Callback() {
+            @Override
+            public void succeeded() {
+                log.info("Sent request content to target");
+                writeCount.decrementAndGet();
+            }
+
+            @Override
+            public void failed(Throwable x) {
+                log.warn("Error sending request content to target", x);
+                writeCount.decrementAndGet();
+            }
+
+        });
+        if (!added) {
+            log.warn("Content was not added! " + new String(payload, offset, len));
+        }
+
     }
 
-    @OnWebSocketMessage
-    public void onMessage(String msg) {
+    @Override
+    public void onWebSocketText(String msg) {
         log.debug("Got message " + msg);
         if (requestToTarget == null) {
             whenAcquiredAction.run();
@@ -85,8 +115,16 @@ public class ConnectorSocket {
                 })
                 .onResponseContentAsync(new ResponseBodyPumper(session));
         } else if (msg.equals(Constants.REQUEST_ENDED_MARKER)) {
-            log.info("Request body fully sent");
+            log.info("Write count = " + writeCount.get());
+            while (writeCount.get() > 0) {
+                try {
+                    Thread.sleep(100);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+            }
             targetRequestContentProvider.close();
+            log.info("Request body fully sent");
         } else {
             int pos = msg.indexOf(':');
             if (pos > 0) {
@@ -107,29 +145,23 @@ public class ConnectorSocket {
                 });
             }
         }
+
     }
 
-    @OnWebSocketFrame
-    public void onWebsocketFrame(Frame frame) {
-        if (frame instanceof BinaryFrame) {
-            BinaryFrame bFrame = (BinaryFrame) frame;
-            log.info("Got frame " + frame);
-            targetRequestContentProvider.offer(bFrame.getPayload(), new Callback() {
-                @Override
-                public void succeeded() {
-                    log.info("Sent request content to target");
-                }
-
-                @Override
-                public void failed(Throwable x) {
-                    log.warn("Error sending request content to target", x);
-                }
-            });
-        }
+    @Override
+    public void onWebSocketClose(int statusCode, String reason) {
+        System.out.printf("Connection closed: %d - %s%n", statusCode, reason);
+        this.session = null;
     }
 
-    public void whenAcquired(Runnable runnable) {
-        this.whenAcquiredAction = runnable;
+    @Override
+    public void onWebSocketConnect(Session session) {
+        log.info("Connected on " + session);
+        this.session = session;
     }
 
+    @Override
+    public void onWebSocketError(Throwable cause) {
+
+    }
 }

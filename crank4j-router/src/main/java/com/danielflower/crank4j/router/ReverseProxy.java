@@ -24,6 +24,7 @@ class ReverseProxy extends AbstractHandler {
     @Override
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
 
+        baseRequest.setHandled(true);
         AsyncContext asyncContext = baseRequest.startAsync(request, response);
 
         RouterSocket crankedSocket;
@@ -58,8 +59,6 @@ class ReverseProxy extends AbstractHandler {
             log.error("Error setting up. ErrorID=" + id, e);
             response.sendError(500, "Server ErrorID=" + id);
             asyncContext.complete();
-        } finally {
-            baseRequest.setHandled(true);
         }
 
     }
