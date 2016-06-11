@@ -72,7 +72,7 @@ public class RouterSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketBinary(byte[] payload, int offset, int len) {
-        log.info("Got binary " + offset + ":" + len + ": " + new String(payload, offset, len));
+        log.info("Sending " + len + " bytes to client");
         try {
             responseOutputStream.write(payload, offset, len);
         } catch (IOException e) {
