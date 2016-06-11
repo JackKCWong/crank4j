@@ -6,8 +6,8 @@ import org.slf4j.LoggerFactory;
 
 import java.io.IOException;
 
-public class EntryPoint {
-    private static final Logger log = LoggerFactory.getLogger(EntryPoint.class);
+public class RouterEntryPoint {
+    private static final Logger log = LoggerFactory.getLogger(RouterEntryPoint.class);
     public static void main(String[] args) throws IOException {
         Config config = Config.load(args);
         int port = config.getInt("router.port");

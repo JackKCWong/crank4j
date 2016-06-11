@@ -24,6 +24,7 @@ public class ConnectorApp {
 
     public void start() throws Exception {
         webSocketClient.setMaxBinaryMessageBufferSize(16384);
+        webSocketClient.setMaxIdleTimeout(Long.MAX_VALUE);
         webSocketClient.start();
         URI registerURI = routerURI.resolve("/register");
         log.info("Connecting to " + registerURI);

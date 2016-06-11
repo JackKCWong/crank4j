@@ -7,8 +7,8 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.net.URI;
 
-public class EntryPoint {
-    private static final Logger log = LoggerFactory.getLogger(EntryPoint.class);
+public class ConnectorEntryPoint {
+    private static final Logger log = LoggerFactory.getLogger(ConnectorEntryPoint.class);
     public static void main(String[] args) throws IOException {
         Config config = Config.load(args);
         URI routerURI = URI.create(config.get("router.uri"));

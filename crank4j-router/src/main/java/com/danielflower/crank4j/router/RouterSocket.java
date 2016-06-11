@@ -32,6 +32,7 @@ public class RouterSocket implements WebSocketListener {
     @Override
     public void onWebSocketConnect(Session session) {
         this.outbound = session;
+        outbound.setIdleTimeout(Long.MAX_VALUE);
         onReadyForAction.run();
     }
 
