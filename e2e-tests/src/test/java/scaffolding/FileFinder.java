@@ -32,6 +32,6 @@ public class FileFinder {
     }
 
     public static String helloHtmlContents() throws IOException {
-        return FileUtils.readFileToString(testFile("web/hello.html"));
+        return FileUtils.readFileToString(testFile("web/hello.html"), "UTF-8");
     }
 }

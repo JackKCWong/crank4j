@@ -75,7 +75,7 @@ public class ConnectorSocket implements WebSocketListener {
                 .content(targetRequestContentProvider)
                 .onResponseBegin(response -> {
                     try {
-                        log.info("Sending status to router " + response.getStatus());
+                        log.debug("Sending status to router " + response.getStatus());
                         session.getRemote().sendString("HTTP/1.1 " + response.getStatus() + " " + response.getReason() + "\r\n");
                     } catch (IOException e) {
                         log.warn("Uh oh", e);
@@ -99,7 +99,7 @@ public class ConnectorSocket implements WebSocketListener {
                 .onResponseContentAsync(new ResponseBodyPumper(session));
         } else if (msg.equals(Constants.REQUEST_ENDED_MARKER)) {
             targetRequestContentProvider.close();
-            log.info("Request body fully sent");
+            log.debug("Request body fully sent");
         } else {
             int pos = msg.indexOf(':');
             if (pos > 0) {
@@ -108,11 +108,11 @@ public class ConnectorSocket implements WebSocketListener {
                 if (log.isDebugEnabled()) log.debug("Target request header " + header + "=" + value);
                 requestToTarget.header(header, value);
             } else {
-                log.info("Request headers received");
+                log.debug("Request headers received");
                 requestToTarget.header("Via", "1.1 crnk");
                 requestToTarget.send(result -> {
                     if (result.isSucceeded()) {
-                        log.info("Closing websocket because response fully processed");
+                        log.debug("Closing websocket because response fully processed");
                         session.close(new CloseStatus(1000, "Proxy complete"));
                     } else {
                         log.warn("Failed for " + result.getResponse(), result.getFailure() + " for " + targetURI);
@@ -132,7 +132,7 @@ public class ConnectorSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketConnect(Session session) {
-        log.info("Connected");
+        if (log.isDebugEnabled()) log.debug("Connected to " + session.getRemoteAddress());
         this.session = session;
     }
 

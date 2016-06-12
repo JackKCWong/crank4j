@@ -38,7 +38,7 @@ public class ConnectorApp {
         ConnectorSocket socket = new ConnectorSocket(targetURI);
         socket.whenAcquired(() -> {
             try {
-                log.info("Adding another socket");
+                log.debug("Adding another socket");
                 connectToRouter(registerURI);
             } catch (IOException e) {
                 log.error("Could not replace socket to " + registerURI);

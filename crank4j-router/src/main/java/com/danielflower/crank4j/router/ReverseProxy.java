@@ -12,10 +12,7 @@ import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Collections;
-import java.util.Enumeration;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 import static java.util.Arrays.asList;
 
@@ -50,12 +47,11 @@ class ReverseProxy extends AbstractHandler {
             return;
         }
         crankedSocket.setResponse(response, asyncContext);
-        log.info("Proxying " + target + " with " + crankedSocket);
+        log.info("Proxying " + target + " to " + crankedSocket.remoteAddress());
 
         try {
-
             crankedSocket.sendText(createRequestLine(request));
-            List<String> connectionHeaders = getConnectionHeaders(request);
+            List<String> connectionHeaders = Collections.list(request.getHeaders("Connection"));
             Enumeration<String> headerNames = request.getHeaderNames();
             boolean hasContentLength = false, hasTransferEncodingHeader = false;
             while (headerNames.hasMoreElements()) {
@@ -70,6 +66,7 @@ class ReverseProxy extends AbstractHandler {
                     }
                 }
             }
+            addProxyForwardingHeaders(crankedSocket, request);
 
             crankedSocket.sendText("\r\n");
 
@@ -91,6 +88,26 @@ class ReverseProxy extends AbstractHandler {
 
     }
 
+    private void addProxyForwardingHeaders(RouterSocket socketToConnector, HttpServletRequest request) throws IOException {
+        String xfor = request.getRemoteAddr();
+        String proto = request.getScheme();
+        String host = request.getHeader("Host");
+        String by = request.getLocalName();
+        appendHeader(socketToConnector, "Forwarded", "for=" + xfor + ";proto=" + proto + ";host=" + host + ";by=" + by);
+        if (request.getHeader("X-Forwarded-For") == null) {
+            appendHeader(socketToConnector, "X-Forwarded-For", xfor);
+        }
+        if (request.getHeader("X-Forwarded-Proto") == null) {
+            appendHeader(socketToConnector, "X-Forwarded-Proto", proto);
+        }
+        if (request.getHeader("X-Forwarded-Host") == null) {
+            appendHeader(socketToConnector, "X-Forwarded-Host", host);
+        }
+        if (request.getHeader("X-Forwarded-Server") == null) {
+            appendHeader(socketToConnector, "X-Forwarded-Server", by);
+        }
+    }
+
     private static void appendHeader(RouterSocket crankedSocket, String header, String value) throws IOException {
         crankedSocket.sendText(header + ": " + value + "\r\n");
     }
@@ -100,16 +117,7 @@ class ReverseProxy extends AbstractHandler {
             return false;
         if (connectionHeaders.contains(headerName))
             return false;
-
         return true;
-    }
-
-    private static List<String> getConnectionHeaders(HttpServletRequest request) {
-        String connection = request.getHeader("Connection");
-        if (connection == null || connection.length() == 0) {
-            return Collections.emptyList();
-        }
-        return asList(connection.split("\\s*,\\s*"));
     }
 
     private static String createRequestLine(HttpServletRequest request) {

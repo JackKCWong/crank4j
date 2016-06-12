@@ -22,7 +22,7 @@ public class WebSocketFarm {
             queue = sockets.get(route);
         }
         queue.offer(socket);
-        log.info("New socket added for " + route);
+        log.debug("New socket added for " + route);
     }
 
     public RouterSocket acquireSocket(String target) throws InterruptedException {

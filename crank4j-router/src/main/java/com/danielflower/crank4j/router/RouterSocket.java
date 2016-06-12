@@ -20,11 +20,12 @@ public class RouterSocket implements WebSocketListener {
     private boolean statusReceived = false;
     private ServletOutputStream responseOutputStream;
     private Runnable onReadyForAction;
+    private String remoteAddress;
 
 
     @Override
     public void onWebSocketClose(int statusCode, String reason) {
-        log.info("Router side socket closed - ending request");
+        log.debug("Router side socket closed - ending request");
         this.outbound = null;
         try {
             asyncContext.complete();
@@ -36,6 +37,7 @@ public class RouterSocket implements WebSocketListener {
     @Override
     public void onWebSocketConnect(Session session) {
         this.outbound = session;
+        remoteAddress = session.getRemoteAddress().toString();
         outbound.setIdleTimeout(Long.MAX_VALUE);
         onReadyForAction.run();
     }
@@ -51,7 +53,7 @@ public class RouterSocket implements WebSocketListener {
             statusReceived = true;
             String[] bits = message.split(" ");
             int status = Integer.parseInt(bits[1]);
-            log.info("Client response status " + status);
+            log.debug("Client response status " + status);
             response.setStatus(status);
         } else {
             int pos = message.indexOf(':');
@@ -64,7 +66,7 @@ public class RouterSocket implements WebSocketListener {
                 }
             } else {
                 response.addHeader("Via", "1.1 crnk");
-                log.info("All headers received");
+                log.debug("All headers received");
             }
         }
     }
@@ -95,5 +97,9 @@ public class RouterSocket implements WebSocketListener {
 
     public void setOnReadyForAction(Runnable onReadyForAction) {
         this.onReadyForAction = onReadyForAction;
+    }
+
+    public String remoteAddress() {
+        return remoteAddress;
     }
 }

@@ -120,6 +120,11 @@ public class HttpTests {
         assertThat(requestHeaders.containsKey("Proxy-Authorization"), is(false));
         assertThat(requestHeaders.containsKey("Proxy-Authenticate"), is(false));
         assertThat(requestHeaders.containsKey("Foo"), is(false));
+        assertThat(requestHeaders.get("Forwarded"), equalTo("for=127.0.0.1;proto=https;host=" + router.uri.getAuthority() + ";by=127.0.0.1"));
+        assertThat(requestHeaders.get("X-Forwarded-Proto"), equalTo("https"));
+        assertThat(requestHeaders.get("X-Forwarded-For"),  equalTo("127.0.0.1"));
+        assertThat(requestHeaders.get("X-Forwarded-Server"),  equalTo("127.0.0.1"));
+        assertThat(requestHeaders.get("X-Forwarded-Host"),  equalTo(router.uri.getAuthority()));
         assertThat(resp.getHeaders().getValuesList("Via"), equalTo(asList("1.1 crnk")));
         assertThat(resp.getHeaders().getValuesList("Date"), hasSize(1));
     }
