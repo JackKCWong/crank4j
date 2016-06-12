@@ -1,6 +1,7 @@
 package com.danielflower.crank4j.connector;
 
 import com.danielflower.crank4j.sharedstuff.Action;
+import com.danielflower.crank4j.sharedstuff.Constants;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
 import org.eclipse.jetty.websocket.client.WebSocketClient;
@@ -25,7 +26,7 @@ public class ConnectorApp {
 
     public void start() throws Exception {
         webSocketClient.setMaxBinaryMessageBufferSize(16384);
-        webSocketClient.setMaxIdleTimeout(Long.MAX_VALUE);
+        webSocketClient.setMaxIdleTimeout(Constants.MAX_TOTAL_TIME);
         webSocketClient.start();
         URI registerURI = routerURI.resolve("/register");
         log.info("Connecting to " + registerURI);

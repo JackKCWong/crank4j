@@ -77,11 +77,15 @@ public class RouterSocket implements WebSocketListener {
 
     @Override
     public void onWebSocketBinary(byte[] payload, int offset, int len) {
-        log.debug("Sending " + len + " bytes to client");
-        try {
-            responseOutputStream.write(payload, offset, len);
-        } catch (IOException e) {
-            log.warn("Couldn't write to client response", e);
+        if (len == 0) {
+            log.warn("Recieved 0 bytes to send to " + remoteAddress + " - " + response);
+        } else {
+            log.debug("Sending " + len + " bytes to client");
+            try {
+                responseOutputStream.write(payload, offset, len);
+            } catch (IOException e) {
+                log.warn("Couldn't write to client response", e);
+            }
         }
     }
 

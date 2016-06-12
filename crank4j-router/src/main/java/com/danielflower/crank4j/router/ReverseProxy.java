@@ -12,7 +12,10 @@ import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.*;
+import java.util.Collections;
+import java.util.Enumeration;
+import java.util.List;
+import java.util.UUID;
 
 import static java.util.Arrays.asList;
 
@@ -37,6 +40,7 @@ class ReverseProxy extends AbstractHandler {
         }
 
         AsyncContext asyncContext = baseRequest.startAsync(request, response);
+        asyncContext.setTimeout(Constants.MAX_TOTAL_TIME);
 
         RouterSocket crankedSocket;
         try {

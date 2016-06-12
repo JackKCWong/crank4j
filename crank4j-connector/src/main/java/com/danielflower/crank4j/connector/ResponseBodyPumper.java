@@ -7,6 +7,7 @@ import org.eclipse.jetty.websocket.api.WriteCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
@@ -51,6 +52,11 @@ class ResponseBodyPumper implements Response.AsyncContentListener {
             position += size;
             responseBytes.position(Math.min(position, responseBytes.limit()));
             // TODO should the next loop happen only when the callback has completed? probably...?
+        }
+        try {
+            session.getRemote().flush();
+        } catch (IOException e) {
+            log.warn("Error while flushing target response data to router", e);
         }
     }
 }

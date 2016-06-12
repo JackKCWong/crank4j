@@ -17,10 +17,7 @@ import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.eclipse.jetty.util.Callback;
 import org.eclipse.jetty.util.Fields;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
-import org.junit.AfterClass;
-import org.junit.Assert;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.*;
 import scaffolding.ContentResponseMatcher;
 import scaffolding.FileFinder;
 import scaffolding.TestWebServer;
@@ -38,6 +35,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.zip.GZIPInputStream;
 
 import static com.danielflower.crank4j.sharedstuff.Action.silently;
@@ -48,24 +46,24 @@ import static org.hamcrest.core.IsEqual.equalTo;
 
 public class HttpTests {
     private static final HttpClient client = ClientFactory.startedHttpClient();
-    private static final TestWebServer server = new TestWebServer(Porter.getAFreePort());
+    private static final TestWebServer targetServer = new TestWebServer(Porter.getAFreePort());
     private static final SslContextFactory sslContextFactory = ManualTest.testSslContextFactory();
     private static RouterApp router = new RouterApp(Porter.getAFreePort(), Porter.getAFreePort(), sslContextFactory, "localhost", "localhost");
-    private static ConnectorApp target = new ConnectorApp(router.registerUri, server.uri);
+    private static ConnectorApp connector = new ConnectorApp(router.registerUri, targetServer.uri);
 
     @BeforeClass
     public static void start() throws Exception {
         router.start();
-        server.start();
-        target.start();
+        targetServer.start();
+        connector.start();
     }
 
     @AfterClass
     public static void stop() throws Exception {
         silently(client::stop);
-        silently(server::close);
+        silently(targetServer::close);
         silently(router::shutdown);
-        silently(target::shutdown);
+        silently(connector::shutdown);
     }
 
     @Test
@@ -73,6 +71,28 @@ public class HttpTests {
         ContentResponse resp = client.GET(router.uri.resolve("/static/hello.html"));
         assertThat(resp.getStatus(), is(200));
         Assert.assertEquals(FileFinder.helloHtmlContents(), resp.getContentAsString());
+    }
+
+    @Test
+    @Ignore("Too slow to run frequently")
+    public void slowConsumersAreOkay() throws Exception {
+        StringBuffer received = new StringBuffer();
+        AtomicInteger count = new AtomicInteger(0);
+        ContentResponse response = client.newRequest(router.uri.resolve("/static/hello.html"))
+            .onResponseContent((response1, content) -> {
+                int num = count.incrementAndGet();
+                System.out.println("Receiving " + num);
+                received.append(bufferToString(content));
+                try {
+                    Thread.sleep(1000);
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                System.out.println("Done " + num);
+            })
+            .send();
+        assertThat(response.getStatus(), is(200));
+        Assert.assertEquals(FileFinder.helloHtmlContents(), received.toString());
     }
 
     @Test
@@ -95,7 +115,7 @@ public class HttpTests {
     public void headersAreCorrect() throws Exception {
         // based on stuff in https://www.mnot.net/blog/2011/07/11/what_proxies_must_do
         Map<String,String> requestHeaders = new HashMap<>();
-        server.registerHandler(new AbstractHandler() {
+        targetServer.registerHandler(new AbstractHandler() {
             @Override
             public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
                 if (target.equals("/headers-test")) {
@@ -133,7 +153,7 @@ public class HttpTests {
 
     @Test
     public void canPostData() throws Exception {
-        server.registerHandler(new AbstractHandler() {
+        targetServer.registerHandler(new AbstractHandler() {
             @Override
             public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
                 if (target.equals("/post-test")) {
@@ -158,7 +178,7 @@ public class HttpTests {
         String requestHeader = RandomStringUtils.randomAlphanumeric(32000);
         String expectedResponseHeader = requestHeader.substring(0, allowableResponseHeaderSize);
 
-        server.registerHandler(new AbstractHandler() {
+        targetServer.registerHandler(new AbstractHandler() {
             @Override
             public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
                 if (target.equals("/big-headers")) {
@@ -181,7 +201,7 @@ public class HttpTests {
     @Test
     public void queryStringsAreProxied() throws Exception {
         String greeting = RandomStringUtils.randomAlphanumeric(8000);
-        server.registerHandler(new AbstractHandler() {
+        targetServer.registerHandler(new AbstractHandler() {
             @Override
             public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
                 if (target.equals("/query-string-test")) {
@@ -197,7 +217,7 @@ public class HttpTests {
 
     @Test
     public void pathParametersAreProxied() throws Exception {
-        server.registerHandler(new AbstractHandler() {
+        targetServer.registerHandler(new AbstractHandler() {
             @Override
             public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
                 if (target.equals("/path-param-test/a-path-param")) {
@@ -213,9 +233,9 @@ public class HttpTests {
 
     @Test
     public void hundredsOfKBsOfPostDataCanBeStreamedThereAndBackAgain() throws Exception {
-        String val = RandomStringUtils.randomAlphanumeric(500000);
+        String val = RandomStringUtils.randomAlphanumeric(1500000);
         StringBuffer errors = new StringBuffer();
-        server.registerHandler(new AbstractHandler() {
+        targetServer.registerHandler(new AbstractHandler() {
             @Override
             public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
                 if (target.equals("/large-post")) {
@@ -265,11 +285,7 @@ public class HttpTests {
 
                 @Override
                 public void onContent(Response response, ByteBuffer content) {
-                    ByteBuffer responseBytes = ByteBuffer.allocate(content.capacity());
-                    responseBytes.put(content);
-                    responseBytes.position(0);
-                    String s = new String(responseBytes.array());
-                    actualBody.append(s);
+                    actualBody.append(bufferToString(content));
                 }
 
                 @Override
@@ -292,6 +308,13 @@ public class HttpTests {
         Assert.assertEquals("", errors.toString());
         Assert.assertEquals(val, actualBody.toString());
 
+    }
+
+    private static String bufferToString(ByteBuffer content) {
+        ByteBuffer responseBytes = ByteBuffer.allocate(content.capacity());
+        responseBytes.put(content);
+        responseBytes.position(0);
+        return new String(responseBytes.array());
     }
 
 
