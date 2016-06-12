@@ -10,9 +10,13 @@ import javax.servlet.ServletOutputStream;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.List;
+
+import static java.util.Arrays.asList;
 
 public class RouterSocket implements WebSocketListener {
     private static final Logger log = LoggerFactory.getLogger(RouterSocket.class);
+    public static List<String> RESPONSE_HEADERS_TO_NOT_SEND_BACK = asList("content-length", "server");
 
     private Session outbound;
     private HttpServletResponse response;
@@ -59,7 +63,7 @@ public class RouterSocket implements WebSocketListener {
             int pos = message.indexOf(':');
             if (pos > 0) {
                 String header = message.substring(0, pos);
-                if (!header.equals("Content-Length")) {
+                if (!RESPONSE_HEADERS_TO_NOT_SEND_BACK.contains(header.toLowerCase())) {
                     String value = message.substring(pos + 1).trim();
                     if (log.isDebugEnabled()) log.debug("Sending Client response header " + header + "=" + value);
                     response.addHeader(header, value);

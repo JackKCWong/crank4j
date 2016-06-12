@@ -32,6 +32,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.Map;
@@ -40,7 +41,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.zip.GZIPInputStream;
 
 import static com.danielflower.crank4j.sharedstuff.Action.silently;
-import static java.util.Arrays.asList;
 import static org.hamcrest.CoreMatchers.is;
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
@@ -99,6 +99,7 @@ public class HttpTests {
             @Override
             public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
                 if (target.equals("/headers-test")) {
+                    response.setHeader("Server", "Hello");
                     response.getWriter().append("Hi").close();
                     Enumeration<String> headerNames = request.getHeaderNames();
                     while (headerNames.hasMoreElements()) {
@@ -125,8 +126,9 @@ public class HttpTests {
         assertThat(requestHeaders.get("X-Forwarded-For"),  equalTo("127.0.0.1"));
         assertThat(requestHeaders.get("X-Forwarded-Server"),  equalTo("127.0.0.1"));
         assertThat(requestHeaders.get("X-Forwarded-Host"),  equalTo(router.uri.getAuthority()));
-        assertThat(resp.getHeaders().getValuesList("Via"), equalTo(asList("1.1 crnk")));
+        assertThat(resp.getHeaders().getValuesList("Via"), equalTo(Collections.singletonList("1.1 crnk")));
         assertThat(resp.getHeaders().getValuesList("Date"), hasSize(1));
+        assertThat(resp.getHeaders().getValuesList("Server"), hasSize(0)); // Some say exposing info about the Server is a security risk
     }
 
     @Test
