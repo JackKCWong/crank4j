@@ -44,7 +44,7 @@ import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.hasSize;
 import static org.hamcrest.core.IsEqual.equalTo;
 
-public class HttpTests {
+public class HttpTest {
     private static final HttpClient client = ClientFactory.startedHttpClient();
     private static final TestWebServer targetServer = new TestWebServer(Porter.getAFreePort());
     private static final SslContextFactory sslContextFactory = ManualTest.testSslContextFactory();

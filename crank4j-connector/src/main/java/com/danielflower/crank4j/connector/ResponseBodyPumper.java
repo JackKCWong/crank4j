@@ -34,13 +34,14 @@ class ResponseBodyPumper implements Response.AsyncContentListener {
             int size = responseBytes.capacity() - position;
             responseBytes.limit(Math.min(MAX_MESSAGE_SIZE_IN_BYTES, responseBytes.capacity()));
             log.debug("Sending " + responseBytes.limit() + " bytes to router");
-        try {
+            try {
+                // TODO: change this to async writes
                 session.getRemote().sendBytes(responseBytes);
-        } catch (IOException e) {
+            } catch (IOException e) {
                 log.warn("Error while sending bytes to router", e);
                 callback.failed(e);
                 return;
-        }
+            }
             position += size;
             responseBytes.position(Math.min(position, responseBytes.limit()));
         }
