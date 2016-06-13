@@ -49,7 +49,7 @@ public class HttpTest {
     private static final TestWebServer targetServer = new TestWebServer(Porter.getAFreePort());
     private static final SslContextFactory sslContextFactory = ManualTest.testSslContextFactory();
     private static RouterApp router = new RouterApp(Porter.getAFreePort(), Porter.getAFreePort(), sslContextFactory, "localhost", "localhost");
-    private static ConnectorApp connector = new ConnectorApp(router.registerUri, targetServer.uri);
+    private static ConnectorApp connector = new ConnectorApp(router.registerUri, targetServer.uri, 3);
 
     @BeforeClass
     public static void start() throws Exception {

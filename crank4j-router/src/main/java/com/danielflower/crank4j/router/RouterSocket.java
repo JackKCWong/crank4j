@@ -60,18 +60,20 @@ public class RouterSocket implements WebSocketListener {
             log.debug("Client response status " + status);
             response.setStatus(status);
         } else {
-            int pos = message.indexOf(':');
-            if (pos > 0) {
-                String header = message.substring(0, pos);
-                if (!RESPONSE_HEADERS_TO_NOT_SEND_BACK.contains(header.toLowerCase())) {
-                    String value = message.substring(pos + 1).trim();
-                    if (log.isDebugEnabled()) log.debug("Sending Client response header " + header + "=" + value);
-                    response.addHeader(header, value);
+            String[] lines = message.split("\n");
+            for (String line : lines) {
+                int pos = line.indexOf(':');
+                if (pos > 0) {
+                    String header = line.substring(0, pos);
+                    if (!RESPONSE_HEADERS_TO_NOT_SEND_BACK.contains(header.toLowerCase())) {
+                        String value = line.substring(pos + 1);
+                        if (log.isDebugEnabled()) log.debug("Sending Client response header " + header + "=" + value);
+                        response.addHeader(header, value);
+                    }
                 }
-            } else {
-                response.addHeader("Via", "1.1 crnk");
-                log.debug("All headers received");
             }
+            response.addHeader("Via", "1.1 crnk");
+            log.debug("All headers received");
         }
     }
 

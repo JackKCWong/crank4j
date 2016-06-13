@@ -33,7 +33,7 @@ class RequestBodyPumper implements ReadListener {
             if (read == -1) {
                 return;
             } else {
-                log.info("About to send " + read + " bytes to connector");
+                log.debug("About to send " + read + " bytes to connector");
                 crankedSocket.sendData(buffer, 0, read);
             }
         }
@@ -42,7 +42,7 @@ class RequestBodyPumper implements ReadListener {
     @Override
     public void onAllDataRead() throws IOException {
         log.info("All request data read");
-        crankedSocket.sendText(Constants.REQUEST_ENDED_MARKER);
+        crankedSocket.sendText(Constants.REQUEST_BODY_ENDED_MARKER);
     }
 
     @Override

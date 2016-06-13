@@ -13,15 +13,16 @@ import java.net.URI;
 
 public class ConnectorApp {
     private static final Logger log = LoggerFactory.getLogger(ConnectorApp.class);
-    private static final int WEB_SOCKET_BUFFER_SIZE = 100;
+    private final int webSocketPoolSize;
 
     private final URI routerURI;
     private final URI targetURI;
     private final WebSocketClient webSocketClient = new WebSocketClient(new SslContextFactory(true));
 
-    public ConnectorApp(URI routerURI, URI targetURI) {
+    public ConnectorApp(URI routerURI, URI targetURI, int webSocketPoolSize) {
         this.routerURI = routerURI;
         this.targetURI = targetURI;
+        this.webSocketPoolSize = webSocketPoolSize;
     }
 
     public void start() throws Exception {
@@ -30,7 +31,7 @@ public class ConnectorApp {
         webSocketClient.start();
         URI registerURI = routerURI.resolve("/register");
         log.info("Connecting to " + registerURI);
-        for (int i = 0; i < WEB_SOCKET_BUFFER_SIZE; i++) {
+        for (int i = 0; i < webSocketPoolSize; i++) {
             connectToRouter(registerURI);
         }
     }

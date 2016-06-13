@@ -1,6 +1,7 @@
 package com.danielflower.crank4j.router;
 
 import com.danielflower.crank4j.sharedstuff.Constants;
+import com.danielflower.crank4j.sharedstuff.HeadersBuilder;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.slf4j.Logger;
@@ -58,6 +59,7 @@ class ReverseProxy extends AbstractHandler {
             List<String> connectionHeaders = Collections.list(request.getHeaders("Connection"));
             Enumeration<String> headerNames = request.getHeaderNames();
             boolean hasContentLength = false, hasTransferEncodingHeader = false;
+            HeadersBuilder headers = new HeadersBuilder();
             while (headerNames.hasMoreElements()) {
                 String header = headerNames.nextElement();
                 hasContentLength = hasContentLength || header.equalsIgnoreCase("Content-Length");
@@ -66,22 +68,23 @@ class ReverseProxy extends AbstractHandler {
                     Enumeration<String> values = request.getHeaders(header);
                     while (values.hasMoreElements()) {
                         String value = values.nextElement();
-                        appendHeader(crankedSocket, header, value);
+                        headers.appendHeader(header, value);
                     }
                 }
             }
-            addProxyForwardingHeaders(crankedSocket, request);
+            addProxyForwardingHeaders(headers, request);
 
-            crankedSocket.sendText("\r\n");
+            crankedSocket.sendText(headers.toString());
 
             if (hasContentLength || hasTransferEncodingHeader) {
                 // Stream the body
                 ServletInputStream requestInputStream = request.getInputStream();
                 int contentLength = request.getIntHeader("Content-Length");
                 requestInputStream.setReadListener(new RequestBodyPumper(requestInputStream, crankedSocket, asyncContext, contentLength));
+                crankedSocket.sendText(Constants.REQUEST_BODY_PENDING_MARKER);
             } else {
                 // No request body
-                crankedSocket.sendText(Constants.REQUEST_ENDED_MARKER);
+                crankedSocket.sendText(Constants.REQUEST_HAS_NO_BODY_MARKER);
             }
         } catch (Exception e) {
             String id = UUID.randomUUID().toString();
@@ -92,28 +95,24 @@ class ReverseProxy extends AbstractHandler {
 
     }
 
-    private void addProxyForwardingHeaders(RouterSocket socketToConnector, HttpServletRequest request) throws IOException {
+    private void addProxyForwardingHeaders(HeadersBuilder headers, HttpServletRequest request) throws IOException {
         String xfor = request.getRemoteAddr();
         String proto = request.getScheme();
         String host = request.getHeader("Host");
         String by = request.getLocalName();
-        appendHeader(socketToConnector, "Forwarded", "for=" + xfor + ";proto=" + proto + ";host=" + host + ";by=" + by);
+        headers.appendHeader("Forwarded", "for=" + xfor + ";proto=" + proto + ";host=" + host + ";by=" + by);
         if (request.getHeader("X-Forwarded-For") == null) {
-            appendHeader(socketToConnector, "X-Forwarded-For", xfor);
+            headers.appendHeader("X-Forwarded-For", xfor);
         }
         if (request.getHeader("X-Forwarded-Proto") == null) {
-            appendHeader(socketToConnector, "X-Forwarded-Proto", proto);
+            headers.appendHeader("X-Forwarded-Proto", proto);
         }
         if (request.getHeader("X-Forwarded-Host") == null) {
-            appendHeader(socketToConnector, "X-Forwarded-Host", host);
+            headers.appendHeader("X-Forwarded-Host", host);
         }
         if (request.getHeader("X-Forwarded-Server") == null) {
-            appendHeader(socketToConnector, "X-Forwarded-Server", by);
+            headers.appendHeader("X-Forwarded-Server", by);
         }
-    }
-
-    private static void appendHeader(RouterSocket crankedSocket, String header, String value) throws IOException {
-        crankedSocket.sendText(header + ": " + value + "\r\n");
     }
 
     private static boolean shouldSendHeader(String headerName, List<String> connectionHeaders) {
@@ -129,7 +128,7 @@ class ReverseProxy extends AbstractHandler {
         String path = request.getRequestURI();
         String qs = request.getQueryString();
         qs = (qs == null) ? "" : "?" + qs;
-        return request.getMethod() + " " + path + qs + " HTTP/1.1\r\n";
+        return request.getMethod() + " " + path + qs + " HTTP/1.1";
     }
 
 }
