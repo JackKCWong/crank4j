@@ -1,56 +1,42 @@
 package com.danielflower.crank4j.connector;
 
-import com.danielflower.crank4j.sharedstuff.Action;
-import com.danielflower.crank4j.sharedstuff.Constants;
-import org.eclipse.jetty.util.ssl.SslContextFactory;
-import org.eclipse.jetty.websocket.client.ClientUpgradeRequest;
-import org.eclipse.jetty.websocket.client.WebSocketClient;
+import com.danielflower.crank4j.sharedstuff.HealthServiceHandler;
+import com.danielflower.crank4j.sharedstuff.RestfulServer;
+import com.danielflower.crank4j.utils.Action;
+import com.danielflower.crank4j.utils.ConnectionMonitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.net.URI;
 
 public class ConnectorApp {
-    private static final Logger log = LoggerFactory.getLogger(ConnectorApp.class);
-    private final int webSocketPoolSize;
+	private static final Logger log = LoggerFactory.getLogger(ConnectorApp.class);
+	private final RestfulServer server;
+	public final URI healthUri;
+	private final Connector connector;
+	private final ConnectorHealthService connectorHealthService;
 
-    private final URI routerURI;
-    private final URI targetURI;
-    private final WebSocketClient webSocketClient = new WebSocketClient(new SslContextFactory(true));
 
-    public ConnectorApp(URI routerURI, URI targetURI, int webSocketPoolSize) {
-        this.routerURI = routerURI;
-        this.targetURI = targetURI;
-        this.webSocketPoolSize = webSocketPoolSize;
-    }
+	public ConnectorApp(URI[] routerURIs, URI targetURI, String targetServiceName, int healthPort, int webSocketPoolSize,
+	                    ConnectionMonitor.DataPublishHandler[] dataPublishHandlers) {
+		this.connector = Crank4jConnectorFactory.createAndStartConnector(targetURI, targetServiceName, routerURIs, webSocketPoolSize, dataPublishHandlers);
+		connectorHealthService = new ConnectorHealthService(connector.getConnectionMonitor());
+		this.server = new RestfulServer(healthPort, new HealthServiceHandler(connectorHealthService));
+		this.healthUri = URI.create("http://localhost:" + healthPort + "/health");
+		try {
+			ConnectorHealthService.registerMBean(connectorHealthService);
+		} catch (Exception e) {
+			log.warn("Cannot create Health Bean " + e.toString());
+		}
+	}
 
-    public void start() throws Exception {
-        webSocketClient.setMaxBinaryMessageBufferSize(16384);
-        webSocketClient.setMaxIdleTimeout(Constants.MAX_TOTAL_TIME);
-        webSocketClient.start();
-        URI registerURI = routerURI.resolve("/register");
-        log.info("Connecting to " + registerURI);
-        for (int i = 0; i < webSocketPoolSize; i++) {
-            connectToRouter(registerURI);
-        }
-    }
+	public void start() throws Exception {
+		server.start();
+		connectorHealthService.scheduleHealthCheck();
+	}
 
-    private void connectToRouter(URI registerURI) throws IOException {
-        ConnectorSocket socket = new ConnectorSocket(targetURI);
-        socket.whenAcquired(() -> {
-            try {
-                log.debug("Adding another socket");
-                connectToRouter(registerURI);
-            } catch (IOException e) {
-                log.error("Could not replace socket to " + registerURI);
-            }
-        });
-        ClientUpgradeRequest cur = new ClientUpgradeRequest();
-        webSocketClient.connect(socket, registerURI, cur);
-    }
-
-    public void shutdown() {
-        Action.silently(webSocketClient::stop);
-    }
+	public void shutdown() {
+		Action.swallowException(server::stop);
+		connector.shutdown();
+	}
 }

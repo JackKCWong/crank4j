@@ -1,7 +1,9 @@
 package com.danielflower.crank4j.router;
 
+import com.danielflower.crank4j.protocol.CrankerProtocolRequestBuilder;
+import com.danielflower.crank4j.protocol.HeadersBuilder;
 import com.danielflower.crank4j.sharedstuff.Constants;
-import com.danielflower.crank4j.sharedstuff.HeadersBuilder;
+import com.danielflower.crank4j.utils.ConnectionMonitor;
 import org.eclipse.jetty.server.Request;
 import org.eclipse.jetty.server.handler.AbstractHandler;
 import org.slf4j.Logger;
@@ -13,6 +15,7 @@ import javax.servlet.ServletInputStream;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.net.URI;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
@@ -26,21 +29,20 @@ class ReverseProxy extends AbstractHandler {
         asList("Connection", "Keep-Alive", "Proxy-Authenticate", "Proxy-Authorization", "TE", "Trailer", "Transfer-Encoding", "Upgrade");
 
     private final WebSocketFarm webSocketFarm;
+    private final ConnectionMonitor connectionMonitor;
 
-    public ReverseProxy(WebSocketFarm webSocketFarm) {
+    public ReverseProxy(WebSocketFarm webSocketFarm, ConnectionMonitor connectionMonitor) {
         this.webSocketFarm = webSocketFarm;
+        this.connectionMonitor = connectionMonitor;
     }
 
     @Override
     public void handle(String target, Request baseRequest, HttpServletRequest request, HttpServletResponse response) throws IOException, ServletException {
-
         baseRequest.setHandled(true);
-        if ("chunked".equalsIgnoreCase(request.getHeader("Transfer-Encoding")) && request.getIntHeader("Content-Length") > 0) {
-            response.sendError(400, "Invalid request: chunked request with Content-Length");
-            return;
-        }
 
         AsyncContext asyncContext = baseRequest.startAsync(request, response);
+        connectionMonitor.onConnectionStarted();
+
         asyncContext.setTimeout(Constants.MAX_TOTAL_TIME);
 
         RouterSocket crankedSocket;
@@ -52,10 +54,11 @@ class ReverseProxy extends AbstractHandler {
             return;
         }
         crankedSocket.setResponse(response, asyncContext);
-        log.info("Proxying " + target + " to " + crankedSocket.remoteAddress());
+        log.info("Proxying " + target + " from " + baseRequest.getRemoteAddr() + " to " + crankedSocket.remoteAddress());
 
         try {
-            crankedSocket.sendText(createRequestLine(request));
+            CrankerProtocolRequestBuilder protocolRequest = CrankerProtocolRequestBuilder.newBuilder();
+            protocolRequest.withRequestLine(createRequestLine(request));
             List<String> connectionHeaders = Collections.list(request.getHeaders("Connection"));
             Enumeration<String> headerNames = request.getHeaderNames();
             boolean hasContentLength = false, hasTransferEncodingHeader = false;
@@ -73,24 +76,24 @@ class ReverseProxy extends AbstractHandler {
                 }
             }
             addProxyForwardingHeaders(headers, request);
-
-            crankedSocket.sendText(headers.toString());
+            protocolRequest.withRequestHeaders(headers);
 
             if (hasContentLength || hasTransferEncodingHeader) {
                 // Stream the body
                 ServletInputStream requestInputStream = request.getInputStream();
                 int contentLength = request.getIntHeader("Content-Length");
-                requestInputStream.setReadListener(new RequestBodyPumper(requestInputStream, crankedSocket, asyncContext, contentLength));
-                crankedSocket.sendText(Constants.REQUEST_BODY_PENDING_MARKER);
+                requestInputStream.setReadListener(new RequestBodyPumper(requestInputStream, crankedSocket, asyncContext, contentLength, connectionMonitor));
+                crankedSocket.sendText(protocolRequest.withRequestBodyPending().build());
             } else {
                 // No request body
-                crankedSocket.sendText(Constants.REQUEST_HAS_NO_BODY_MARKER);
+                crankedSocket.sendText(protocolRequest.withRequestHasNoBody().build());
             }
         } catch (Exception e) {
             String id = UUID.randomUUID().toString();
             log.error("Error setting up. ErrorID=" + id, e);
             response.sendError(500, "Server ErrorID=" + id);
             asyncContext.complete();
+            connectionMonitor.onConnectionEnded();
         }
 
     }
@@ -125,7 +128,7 @@ class ReverseProxy extends AbstractHandler {
 
     private static String createRequestLine(HttpServletRequest request) {
         // Request-Line   = Method SP Request-URI SP HTTP-Version CRLF
-        String path = request.getRequestURI();
+        String path = URI.create(request.getRequestURI()).normalize().toString();
         String qs = request.getQueryString();
         qs = (qs == null) ? "" : "?" + qs;
         return request.getMethod() + " " + path + qs + " HTTP/1.1";

@@ -1,6 +1,7 @@
 package com.danielflower.crank4j.router;
 
-import com.danielflower.crank4j.sharedstuff.Constants;
+import com.danielflower.crank4j.protocol.CrankerProtocolRequestBuilder;
+import com.danielflower.crank4j.utils.ConnectionMonitor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -15,11 +16,13 @@ class RequestBodyPumper implements ReadListener {
     private final ServletInputStream requestInputStream;
     private final RouterSocket crankedSocket;
     private final AsyncContext asyncContext;
+    private final ConnectionMonitor connectionMonitor;
 
-    public RequestBodyPumper(ServletInputStream requestInputStream, RouterSocket crankedSocket, AsyncContext asyncContext, int contentLength) {
+    public RequestBodyPumper(ServletInputStream requestInputStream, RouterSocket crankedSocket, AsyncContext asyncContext, int contentLength, ConnectionMonitor connectionMonitor) {
         this.requestInputStream = requestInputStream;
         this.crankedSocket = crankedSocket;
         this.asyncContext = asyncContext;
+        this.connectionMonitor = connectionMonitor;
 
         int bufferSize = ((contentLength < 1) || (contentLength > 2048)) ? 2048 : contentLength;
         buffer = new byte[bufferSize];
@@ -42,12 +45,14 @@ class RequestBodyPumper implements ReadListener {
     @Override
     public void onAllDataRead() throws IOException {
         log.info("All request data read");
-        crankedSocket.sendText(Constants.REQUEST_BODY_ENDED_MARKER);
+        String bodyEndedRequestMsg = CrankerProtocolRequestBuilder.newBuilder().withRequestBodyEnded().build();
+        crankedSocket.sendText(bodyEndedRequestMsg);
     }
 
     @Override
     public void onError(Throwable t) {
         log.info("Error reading request", t);
         asyncContext.complete();
+        connectionMonitor.onConnectionEnded();
     }
 }
