@@ -95,6 +95,7 @@ public class TestWebServer implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
+        jettyServer.setStopTimeout(1000L);
         jettyServer.stop();
     }
 }

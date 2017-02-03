@@ -1,20 +1,21 @@
 package com.danielflower.crank4j.connector;
 
-import com.danielflower.crank4j.sharedstuff.Crank4jException;
+
+import com.danielflower.crank4j.utils.Crank4jException;
 import org.eclipse.jetty.client.HttpClient;
 import org.eclipse.jetty.util.HttpCookieStore;
 import org.eclipse.jetty.util.ssl.SslContextFactory;
 
 import java.util.concurrent.TimeUnit;
 
-import static com.danielflower.crank4j.sharedstuff.Constants.MAX_REQUEST_HEADERS_SIZE;
-
 public class ClientFactory {
 
     public static HttpClient startedHttpClient() {
-        HttpClient client = new HttpClient(new SslContextFactory(true));
+        SslContextFactory sslContextFactory = new SslContextFactory(true);
+        sslContextFactory.setTrustAll(true);
+        HttpClient client = new HttpClient(sslContextFactory);
         client.setFollowRedirects(false); // redirects should be proxied
-        client.setRequestBufferSize(MAX_REQUEST_HEADERS_SIZE);
+        client.setRequestBufferSize(Constants.MAX_REQUEST_HEADERS_SIZE);
         client.setIdleTimeout(TimeUnit.HOURS.toMillis(2));
         client.setMaxConnectionsPerDestination(32768); // copied Jetty's ReverseProxy default value
         // Must not store cookies, otherwise cookies of different clients will mix.

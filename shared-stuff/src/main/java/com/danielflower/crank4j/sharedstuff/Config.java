@@ -1,8 +1,12 @@
 package com.danielflower.crank4j.sharedstuff;
 
+import com.danielflower.crank4j.utils.Crank4jException;
+
 import java.io.File;
 import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
@@ -13,10 +17,16 @@ import static com.danielflower.crank4j.sharedstuff.Dirs.dirPath;
 public class Config {
 
     public static Config load(String[] commandLineArgs) throws IOException {
-        Map<String, String> env = new HashMap<>(System.getenv());
+        Map<String, String> envVars = new HashMap<>(System.getenv());
+        Map<String, String> env = new HashMap<>();
+
+        for (String key : envVars.keySet()) {
+            String value = envVars.get(key);
+            env.put(key.replace("_", ".").toLowerCase(), value);
+        }
         for (String key : System.getProperties().stringPropertyNames()) {
             String value = System.getProperty(key);
-            env.put(key.replace("_", ".").toLowerCase(), value);
+            env.put(key, value);
         }
         for (String commandLineArg : commandLineArgs) {
             File file = new File(commandLineArg);
@@ -50,6 +60,20 @@ public class Config {
             throw new Crank4jException("Missing config item: " + name);
         }
         return s;
+    }
+
+    public Integer[] getIntArray(String name) {
+        String s = get(name);
+        try {
+            String[] token = s.trim().split(",");
+            Integer[] ints = new Integer[token.length];
+            for (int i = 0; i < token.length; i++) {
+                ints[i] = Integer.parseInt(token[i]);
+            }
+            return ints;
+        } catch (NumberFormatException e) {
+            throw new Crank4jException("Could not convert " + name + "=" + s + " to an integer");
+        }
     }
 
     public int getInt(String name) {

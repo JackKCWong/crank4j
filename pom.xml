@@ -13,6 +13,9 @@
         <module>crank4j-connector</module>
         <module>shared-stuff</module>
         <module>e2e-tests</module>
+        <module>crank4j-connector-embedded</module>
+        <module>cranker-protocol</module>
+        <module>crank4j-utils</module>
     </modules>
 
     <properties>
@@ -37,11 +40,35 @@
 
     <build>
         <plugins>
-
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.0.2</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addDefaultImplementationEntries>true</addDefaultImplementationEntries>
+                            <addDefaultSpecificationEntries>true</addDefaultSpecificationEntries>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-source-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>attach-sources</id>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>com.github.danielflower.mavenplugins</groupId>
                 <artifactId>multi-module-maven-release-plugin</artifactId>
-                <version>2.0.3</version>
+                <version>2.0.9</version>
                 <configuration>
                     <releaseGoals>
                         <releaseGoal>clean</releaseGoal>
@@ -82,6 +109,5 @@
             </plugin>
         </plugins>
     </build>
-
 
 </project>
