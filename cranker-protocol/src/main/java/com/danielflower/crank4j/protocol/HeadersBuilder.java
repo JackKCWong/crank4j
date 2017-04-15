@@ -1,4 +1,4 @@
-package com.danielflower.crank4j.sharedstuff;
+package com.danielflower.crank4j.protocol;
 
 import java.io.IOException;
 

@@ -12,7 +12,7 @@ the DMZ to the internal network. Crank4j allows you to reverse this: Just open
 a port from the internal network to the DMZ, and Crank4j will tunnel HTTP traffic
 over the opened network.
 
-So there are two piece:
+So there are two pieces:
 
 * **The router** that faces the internet, and accepts client HTTP requests
 * **The connector** that opens connections to the router, and then passes tunneled
@@ -26,6 +26,7 @@ The connections look like this:
 
 But from the point of view of the browser, and your HTTP service, it just looks
 like a normal reverse proxy.
+
 
 Running locally
 ---------------
@@ -49,14 +50,3 @@ in `local/connector.properties` under the value `target.uri`
         cd local
         start-connector.bat or ./start-router.sh
 5. Open `https://localhost:8443` in your browser.
-
-Todo
-----
-
-* Add monitoring via HTTP URLs to router (different port) and connector
-* Monitor connections: maintain goal of socket size and add more if needed
-* Allow any start ordering of router and connector; allow restarts etc
-* Put a unique request ID to allow easy tracking (optionally supplied by client)
-* Try bigger websocket sizes so bigger responses are faster?
-* Make a way to release project
-

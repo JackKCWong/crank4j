@@ -6,7 +6,6 @@ import org.eclipse.jetty.websocket.api.Session;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.IOException;
 import java.nio.ByteBuffer;
 
 /**
@@ -37,7 +36,7 @@ class ResponseBodyPumper implements Response.AsyncContentListener {
             try {
                 // TODO: change this to async writes
                 session.getRemote().sendBytes(responseBytes);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 log.warn("Error while sending bytes to router", e);
                 callback.failed(e);
                 return;

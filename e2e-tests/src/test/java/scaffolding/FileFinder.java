@@ -1,6 +1,7 @@
 package scaffolding;
 
-import com.danielflower.crank4j.sharedstuff.Crank4jException;
+
+import com.danielflower.crank4j.utils.Crank4jException;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 
