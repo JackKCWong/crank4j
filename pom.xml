@@ -12,7 +12,6 @@
         <module>crank4j-router</module>
         <module>crank4j-connector</module>
         <module>shared-stuff</module>
-        <module>e2e-tests</module>
         <module>crank4j-connector-embedded</module>
         <module>cranker-protocol</module>
         <module>crank4j-utils</module>
